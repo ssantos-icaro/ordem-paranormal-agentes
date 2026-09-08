@@ -895,7 +895,7 @@ function renderAttrSheet(a) {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "attr-row";
-    row.innerHTML = `<span>${ATTR_LABEL[k]}</span><span class="attr-die">d${a.attrs[k]}</span><span class="hint act" style="margin-left:auto">testar</span>`;
+    row.innerHTML = `<span class="attr-name">${ATTR_LABEL[k]}</span><span class="attr-die">d${a.attrs[k]}</span><span class="hint act" style="margin-left:auto">testar</span>`;
     row.addEventListener("click", () => {
       const dice = [
         { sides: a.attrs[k], label: ATTR_LABEL[k], type: "attr" },
