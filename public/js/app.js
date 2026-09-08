@@ -931,7 +931,7 @@ function renderAttrSheet(a) {
     const row = document.createElement("div");
     row.className = "attr-row";
     row.innerHTML = `
-      <span class="attr-name">${ATTR_LABEL[k]}</span>
+      <span class="attr-name act" title="Rolar teste de ${ATTR_LABEL[k]}">${ATTR_LABEL[k]}</span>
       <div class="attr-controls">
         <button class="attr-adjust" type="button" data-d="-1" title="Reduzir ${ATTR_LABEL[k]}">−</button>
         <span class="attr-die">d${a.attrs[k]}</span>
@@ -940,6 +940,19 @@ function renderAttrSheet(a) {
     row.querySelectorAll(".attr-adjust").forEach((b) =>
       b.addEventListener("click", () => adjustAttr(k, Number(b.dataset.d))),
     );
+    row.querySelector(".attr-name").addEventListener("click", () => {
+      const dice = [
+        { sides: a.attrs[k], label: ATTR_LABEL[k], type: "attr" },
+      ].concat(pendingBonusDice.map((b) => ({ ...b })));
+      const dt = Number(document.getElementById("dtInput").value) || 7;
+      const r = performTest(dice, dt);
+      const label = "Teste de " + ATTR_LABEL[k];
+      if (r.criticalFail) applyCritFail(a, r);
+      renderRollResult(r, label);
+      showRollPopup(r, label);
+      scrollToRoller();
+      autoImp(a, r.passed === false);
+    });
     el.appendChild(row);
   });
 }

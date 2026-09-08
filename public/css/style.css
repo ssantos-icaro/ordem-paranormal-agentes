@@ -544,6 +544,12 @@ select.input{cursor:pointer}
   overflow:hidden;
 }
 .attr-row .attr-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attr-row .attr-name.act{
+  cursor:pointer;justify-self:center;
+  text-decoration:underline dotted var(--gold-dim);text-underline-offset:5px;
+  transition:color .15s;
+}
+.attr-row .attr-name.act:hover{color:var(--gold);text-decoration-color:var(--gold)}
 .attr-row:hover{border-color:var(--gold-dim)}
 .attr-controls{display:flex;align-items:center;justify-content:center;gap:8px}
 .attr-row .attr-die{
