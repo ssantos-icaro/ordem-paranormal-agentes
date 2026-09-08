@@ -960,8 +960,12 @@ function adjustAttr(k, delta) {
   const oldF = a.attrs.fisico;
   const oldE = a.attrs.emocao;
   a.attrs[k] = next;
-  a.pv_max = a.pv_max + (a.attrs.fisico - oldF);
-  a.pd_max = a.pd_max + (a.attrs.emocao - oldE);
+  const dF = a.attrs.fisico - oldF;
+  const dE = a.attrs.emocao - oldE;
+  a.pv_max = a.pv_max + dF;
+  a.pd_max = a.pd_max + dE;
+  a.pv_current = (a.pv_current || 0) + dF;
+  a.pd_current = (a.pd_current || 0) + dE;
   saveAgent(a);
   renderSheet(a);
   toast(`${ATTR_LABEL[k]} agora é d${next}.`);
