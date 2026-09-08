@@ -149,20 +149,23 @@ const CRIT_FAIL_TABLE = [
     roll: 2,
     name: "Machucado",
     text: "Físico diminui um passo até o fim da cena.",
+    attr: "fisico",
   },
   {
     roll: 3,
     name: "Desatenção",
     text: "Mente diminui um passo até o fim da cena.",
+    attr: "mente",
   },
   {
     roll: 4,
     name: "Irritação",
     text: "Emoção diminui um passo até o fim da cena.",
+    attr: "emocao",
   },
-  { roll: 5, name: "Acidente", text: "Perde 1d4 PV." },
-  { roll: 6, name: "Frustração", text: "Perde 1d4 PD." },
-  { roll: 7, name: "Perda", text: "Um item carregado se perde." },
+  { roll: 5, name: "Acidente", text: "Perde 1d4 PV.", pv: true },
+  { roll: 6, name: "Frustração", text: "Perde 1d4 PD.", pd: true },
+  { roll: 7, name: "Perda", text: "Um item carregado se perde.", item: true },
   { roll: 8, name: "Nenhum efeito adicional", text: "" },
 ];
 
@@ -327,6 +330,8 @@ function performTest(dice, dt) {
     rb,
     criticalSuccess,
     criticalFail,
+    critRoll: criticalFail ? rollDie(8) : null,
+    critApplied: false,
     passed,
     dt: dt ?? null,
   };
@@ -913,6 +918,7 @@ function renderSheet(a) {
   document.getElementById("sheetNotes").value = a.notes || "";
   renderSkillSheet();
   renderProfileWidgets(a);
+  renderCritZone(a);
   document.getElementById("rollResult").style.display = "none";
   renderRollerHead(selectedSkill || "");
   showScreen("sheet");
@@ -922,17 +928,25 @@ function renderAttrSheet(a) {
   const el = document.getElementById("sheetAttrs");
   el.innerHTML = "";
   ["fisico", "mente", "emocao"].forEach((k) => {
-    const row = document.createElement("button");
-    row.type = "button";
+    const row = document.createElement("div");
     row.className = "attr-row";
-    row.innerHTML = `<span class="attr-name">${ATTR_LABEL[k]}</span><span class="attr-die">d${a.attrs[k]}</span><span class="hint act" style="margin-left:auto">testar</span>`;
-    row.addEventListener("click", () => {
+    row.innerHTML = `
+      <span class="attr-name">${ATTR_LABEL[k]}</span>
+      <button class="attr-adjust" type="button" data-d="-1" title="Reduzir ${ATTR_LABEL[k]}">−</button>
+      <span class="attr-die">d${a.attrs[k]}</span>
+      <button class="attr-adjust" type="button" data-d="1" title="Aumentar ${ATTR_LABEL[k]}">+</button>
+      <span class="hint act" role="button" style="margin-left:auto">testar</span>`;
+    row.querySelectorAll(".attr-adjust").forEach((b) =>
+      b.addEventListener("click", () => adjustAttr(k, Number(b.dataset.d))),
+    );
+    row.querySelector(".hint").addEventListener("click", () => {
       const dice = [
         { sides: a.attrs[k], label: ATTR_LABEL[k], type: "attr" },
       ].concat(pendingBonusDice.map((b) => ({ ...b })));
       const dt = Number(document.getElementById("dtInput").value) || 7;
       const r = performTest(dice, dt);
       const label = "Teste de " + ATTR_LABEL[k];
+      if (r.criticalFail) applyCritFail(a, r);
       renderRollResult(r, label);
       showRollPopup(r, label);
       scrollToRoller();
@@ -940,6 +954,95 @@ function renderAttrSheet(a) {
     });
     el.appendChild(row);
   });
+}
+
+function adjustAttr(k, delta) {
+  const a = currentAgent;
+  if (!a) return;
+  const cur = a.attrs[k];
+  const next = stepDie(cur, delta);
+  if (next === cur) {
+    toast(
+      delta > 0
+        ? `${ATTR_LABEL[k]} já está no máximo (d12).`
+        : `${ATTR_LABEL[k]} já está no mínimo (d4).`,
+    );
+    return;
+  }
+  const oldF = a.attrs.fisico;
+  const oldE = a.attrs.emocao;
+  a.attrs[k] = next;
+  a.pv_max = a.pv_max + (a.attrs.fisico - oldF);
+  a.pd_max = a.pd_max + (a.attrs.emocao - oldE);
+  a.pv_current = Math.min(a.pv_current, a.pv_max);
+  a.pd_current = Math.min(a.pd_current, a.pd_max);
+  saveAgent(a);
+  renderSheet(a);
+  toast(`${ATTR_LABEL[k]} agora é d${next}.`);
+}
+
+function applyCritFail(a, r) {
+  const entry = CRIT_FAIL_TABLE.find((e) => e.roll === r.critRoll);
+  if (!entry) return;
+  let applied = false;
+  if (entry.attr) {
+    if (a.attrs[entry.attr] > 4) {
+      if (!a.critAttrs) a.critAttrs = {};
+      if (!(entry.attr in a.critAttrs)) {
+        a.critAttrs[entry.attr] = a.attrs[entry.attr];
+        a.attrs[entry.attr] = stepDie(a.attrs[entry.attr], -1);
+        applied = true;
+      }
+    }
+  } else if (entry.pv) {
+    a.pv_current = Math.max(0, (a.pv_current || 0) - rollDie(4));
+    applied = true;
+  } else if (entry.pd) {
+    a.pd_current = Math.max(0, (a.pd_current || 0) - rollDie(4));
+    applied = true;
+  } else if (entry.item) {
+    if (a.inventory && a.inventory.length) {
+      a.inventory.splice(Math.floor(Math.random() * a.inventory.length), 1);
+      applied = true;
+    }
+  }
+  if (!applied) return;
+  r.critApplied = true;
+  saveAgent(a);
+  renderSheet(a);
+}
+
+function revertCritAttrs(a) {
+  const attrs = a.critAttrs || {};
+  Object.keys(attrs).forEach((k) => {
+    a.attrs[k] = attrs[k];
+  });
+  a.critAttrs = {};
+  saveAgent(a);
+  renderSheet(a);
+  toast("Atributos restaurados (fim da cena).");
+}
+
+function renderCritZone(a) {
+  const el = document.getElementById("sheetCritZone");
+  if (!el) return;
+  el.innerHTML = "";
+  const attrs = a.critAttrs || {};
+  const keys = Object.keys(attrs);
+  if (!keys.length) return;
+  const items = keys
+    .map((k) => `${ATTR_LABEL[k]} d${a.attrs[k]} (base d${attrs[k]})`)
+    .join(" · ");
+  const box = document.createElement("div");
+  box.className = "crit-penalty card";
+  box.innerHTML = `
+    <h3 class="card-title">Penalidade de cena</h3>
+    <p class="crit-p-info">${esc(items)} — reduzidos por falhas críticas até o fim da cena.</p>
+    <button class="btn primary small" id="btnRevertCrit" type="button">Fim da cena · restaurar atributos</button>`;
+  box
+    .querySelector("#btnRevertCrit")
+    .addEventListener("click", () => revertCritAttrs(a));
+  el.appendChild(box);
 }
 
 function autoImp(agent, failed) {
@@ -1172,10 +1275,10 @@ function buildRollHTML(r, label) {
     )
     .join(" ");
   let critFail = "";
-  if (r.criticalFail) {
-    const cfr = rollDie(8);
-    const entry = CRIT_FAIL_TABLE.find((e) => e.roll === cfr);
-    critFail = `<div class="crit-fail">Falha crítica (1d8 = ${cfr}): <b>${entry.name}</b> — ${esc(entry.text)}</div>`;
+  if (r.criticalFail && r.critRoll) {
+    const entry = CRIT_FAIL_TABLE.find((e) => e.roll === r.critRoll);
+    if (entry)
+      critFail = `<div class="crit-fail">Falha crítica (1d8 = ${r.critRoll}): <b>${entry.name}</b> — ${esc(entry.text)}${r.critApplied ? " <small>(penalidade aplicada à ficha)</small>" : ""}</div>`;
   }
   return `
     <div class="roll-verdict ${vClass}">${esc(label || "")} ${verdict} <small>${r.total} vs DT ${r.dt}</small></div>
@@ -1210,6 +1313,7 @@ function doRoll() {
   const dt = Number(document.getElementById("dtInput").value) || 7;
   const r = performTest(dice, dt);
   const label = "Teste de " + (selectedSkill || "perícia") + ".";
+  if (r.criticalFail) applyCritFail(currentAgent, r);
   renderRollResult(r, label);
   showRollPopup(r, label);
   if (r.passed === false && currentAgent.profile === "Executor")
@@ -1222,8 +1326,122 @@ function rollInitiative(a) {
     { sides: a.attrs.emocao, label: "Emoção", type: "attr" },
   ];
   const r = performTest(dice, null);
+  if (r.criticalFail) applyCritFail(a, r);
   renderRollResult(r, "Iniciativa (Fís + Emo).");
   showRollPopup(r, "Iniciativa (Fís + Emo).");
+}
+
+/* ---------------- ROLAGEM LIVRE ---------------- */
+function parseFreeRoll(src) {
+  src = String(src || "").replace(/\s+/g, "");
+  if (!src) throw new Error("Expressão vazia.");
+  let pos = 0;
+  const rolled = [];
+  const peek = () => src[pos];
+  function parseExpr() {
+    let v = parseTerm();
+    while (peek() === "+" || peek() === "-") {
+      const op = src[pos++];
+      const r = parseTerm();
+      v = op === "+" ? v + r : v - r;
+    }
+    return v;
+  }
+  function parseTerm() {
+    let v = parseFactor();
+    while (peek() === "*" || peek() === "/") {
+      const op = src[pos++];
+      const r = parseFactor();
+      if (op === "/" && r === 0) throw new Error("Divisão por zero.");
+      v = op === "*" ? v * r : v / r;
+    }
+    return v;
+  }
+  function parseFactor() {
+    let sign = 1;
+    if (peek() === "-" || peek() === "+") {
+      if (peek() === "-") sign = -1;
+      pos++;
+    }
+    if (peek() === "(") {
+      pos++;
+      const v = parseExpr();
+      if (peek() !== ")") throw new Error("Parêntese não fechado.");
+      pos++;
+      return sign * v;
+    }
+    return sign * parseAtomic();
+  }
+  function parseAtomic() {
+    let num = "";
+    while (peek() && /[0-9]/.test(peek())) num += src[pos++];
+    if (peek() === "d" || peek() === "D") {
+      pos++;
+      let sides = "";
+      while (peek() && /[0-9]/.test(peek())) sides += src[pos++];
+      if (!sides) throw new Error("Dado sem número de lados (ex.: d6, 2d20).");
+      const count = num ? parseInt(num, 10) : 1;
+      const s = parseInt(sides, 10);
+      if (count < 1 || count > 50)
+        throw new Error("Quantidade de dados inválida (1 a 50).");
+      if (s < 1 || s > 1000) throw new Error("Dado inválido (lados de 1 a 1000).");
+      let sum = 0;
+      for (let i = 0; i < count; i++) {
+        const value = 1 + Math.floor(Math.random() * s);
+        rolled.push({ sides: s, value, type: "free" });
+        sum += value;
+      }
+      return sum;
+    }
+    if (!num) throw new Error("Número ou dado esperado.");
+    return parseInt(num, 10);
+  }
+  const total = parseExpr();
+  if (pos !== src.length)
+    throw new Error("Símbolo inesperado na posição " + (pos + 1) + ".");
+  return { total, rolled };
+}
+
+function doFreeRoll() {
+  const inputEl = document.getElementById("freeRollInput");
+  const src = inputEl.value;
+  let res;
+  try {
+    res = parseFreeRoll(src);
+  } catch (err) {
+    toast("Rolagem inválida: " + err.message);
+    inputEl.focus();
+    return;
+  }
+  if (!res.rolled.length) {
+    toast("Inclua ao menos um dado, ex.: 2d6+9 ou 1d20+15.");
+    inputEl.focus();
+    return;
+  }
+  const values = res.rolled.map((d) => d.value);
+  const ra = Math.max(...values);
+  const rb = Math.min(...values);
+  const vc = {};
+  values.forEach((v) => (vc[v] = (vc[v] || 0) + 1));
+  const cs = Object.entries(vc).some(([v, c]) => Number(v) >= 6 && c >= 2);
+  const cf = values.length >= 2 && values.every((v) => v === 1);
+  const r = {
+    rolled: res.rolled,
+    counted: res.rolled,
+    dropped: [],
+    total: res.total,
+    ra,
+    rb,
+    criticalSuccess: cs,
+    criticalFail: cf,
+    critRoll: null,
+    critApplied: false,
+    passed: null,
+    dt: null,
+  };
+  const label = "Rolagem livre · " + src.trim();
+  renderRollResult(r, label);
+  showRollPopup(r, label);
 }
 
 /* ---------------- FOTO DO AGENTE ---------------- */
@@ -1510,6 +1728,7 @@ function widgetMentoria(a, occ) {
       return;
     }
     const r = performTest(getDiceForRoll(), 7);
+    if (r.criticalFail) applyCritFail(currentAgent, r);
     renderRollResult(r, `Mentoria · ${selectedSkill} (ajuda)`);
     showRollPopup(r, `Mentoria · ${selectedSkill} (ajuda)`);
     if (r.passed)
@@ -1677,6 +1896,13 @@ function bindGlobal() {
   });
 
   document.getElementById("btnRoll").addEventListener("click", doRoll);
+  document.getElementById("btnFreeRoll").addEventListener("click", doFreeRoll);
+  document.getElementById("freeRollInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      doFreeRoll();
+    }
+  });
   document
     .getElementById("btnRollInit")
     .addEventListener(
