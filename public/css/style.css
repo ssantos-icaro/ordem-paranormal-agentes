@@ -398,7 +398,7 @@ select.input{cursor:pointer}
 .agent-card:hover{border-color:var(--gold-dim)}
 .agent-card .ac-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .avatar{
-  width:46px;height:46px;border-radius:50%;flex:none;position:relative;
+  width:46px;height:46px;border-radius:50%;flex:none;position:relative;overflow:hidden;
   display:grid;place-items:center;color:var(--ink);font-family:var(--font-mono);font-size:20px;
   border:2px solid var(--gold-dim);
   background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.12),transparent 60%),var(--panel);
@@ -406,6 +406,9 @@ select.input{cursor:pointer}
 .avatar.theme-red{border-color:var(--blood);color:#e8a79f}
 .avatar.theme-blue{border-color:var(--blue);color:#a9c6e0}
 .avatar.theme-green{border-color:var(--green);color:#a9c9ad}
+.avatar.photo{background-size:cover;background-position:center;background-repeat:no-repeat}
+.avatar-sheet{width:76px;height:76px;font-size:30px;cursor:pointer;flex:none}
+.sheet-id{display:flex;align-items:center;gap:14px}
 .agent-card .ac-name{font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--ink)}
 .agent-card .ac-meta{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);letter-spacing:.06em}
 .agent-card .ac-bar{display:flex;gap:8px;font-family:var(--font-mono);font-size:12px;color:var(--ink-dim)}
@@ -436,6 +439,34 @@ select.input{cursor:pointer}
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* ---------------- POPUP DE ROLAGEM ---------------- */
+.roll-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;place-items:center;z-index:55;padding:20px}
+.roll-pop.show{display:grid}
+.roll-p-box{
+  width:100%;max-width:420px;border:1px solid var(--line);background:var(--panel2);
+  padding:22px 22px 14px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+.roll-p-body .roll-verdict{margin-top:0}
+.roll-p-box .btn{margin-top:16px}
+
+/* ---------------- FOTO DO AGENTE ---------------- */
+.photo-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;place-items:center;z-index:55;padding:20px}
+.photo-modal.show{display:grid}
+.photo-box{
+  width:100%;max-width:420px;border:1px solid var(--line);background:var(--panel2);
+  padding:22px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+.photo-box h3{font-family:var(--font-display);color:var(--gold);letter-spacing:.08em;margin-bottom:6px}
+.photo-hint{color:var(--ink-faint);font-size:12.5px;margin-bottom:14px}
+.photo-frame{
+  width:min(320px,72vw);height:min(320px,72vw);margin:0 auto;overflow:hidden;position:relative;
+  border:1px solid var(--line);background:var(--panel);cursor:move;touch-action:none;
+}
+.photo-frame img{position:absolute;left:0;top:0;max-width:none;user-select:none;-webkit-user-drag:none}
+.photo-zoom{display:flex;align-items:center;gap:10px;margin:16px auto;max-width:300px}
+.photo-zoom input[type=range]{flex:1;accent-color:var(--blood)}
+.photo-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
 /* ---------------- responsive ---------------- */
 @media (max-width:900px){
   .create-layout{grid-template-columns:1fr}
@@ -461,6 +492,8 @@ select.input{cursor:pointer}
   .home-user{font-size:12px}
   .sheet-title{font-size:24px}
   .sheet-head{gap:12px}
+  .avatar-sheet{width:62px;height:62px;font-size:24px}
+  .sheet-id{gap:10px}
   .sheet-head-right .btn{flex:1;text-align:center}
   .attr-sheet{grid-template-columns:1fr}
   .attr-chip .die{font-size:24px}

@@ -356,6 +356,15 @@ function showScreen(id) {
 }
 
 /* ---------------- HOME ---------------- */
+function avatarMarkup(a, extraClass) {
+  const p = PROFILES[a.profile] || {};
+  const cls =
+    "avatar theme-" + (p.theme || "green") + (a.photo ? " photo" : "") + (extraClass ? " " + extraClass : "");
+  return a.photo
+    ? `<div class="${cls}" style="background-image:url('${a.photo}')" role="img" aria-label="${esc(a.name || "")}"></div>`
+    : `<div class="${cls}">${esc(a.symbol || "✶")}</div>`;
+}
+
 function renderHome() {
   const list = document.getElementById("agentList");
   list.classList.toggle("empty", agents.length === 0);
@@ -368,11 +377,10 @@ function renderHome() {
   agents.forEach((a) => {
     const card = document.createElement("div");
     card.className = "agent-card";
-    const p = PROFILES[a.profile] || {};
     card.innerHTML = `
       <button class="ac-del" title="Excluir">✕</button>
       <div class="ac-top">
-        <div class="avatar theme-${p.theme || "green"}">${esc(a.symbol || "✶")}</div>
+        ${avatarMarkup(a)}
         <div>
           <div class="ac-name">${esc(a.name || "Sem nome")}</div>
           <div class="ac-meta">${esc(a.profile || "")} · ${esc(a.occupation || "")} · Nível ${a.level}</div>
@@ -888,6 +896,11 @@ function renderSheet(a) {
     `<span class="tag tag-sym theme-${p.theme || "green"}">${esc(a.symbol || "✶")}</span>`;
   document.getElementById("sheetName").className =
     "sheet-title theme-" + (p.theme || "green");
+  const av = document.getElementById("sheetAvatar");
+  av.className =
+    "avatar avatar-sheet theme-" + (p.theme || "green") + (a.photo ? " photo" : "");
+  av.style.backgroundImage = a.photo ? "url('" + a.photo + "')" : "";
+  av.textContent = a.photo ? "" : a.symbol || "✶";
   const sheetEl = document.getElementById("screen-sheet");
   sheetEl.className =
     "screen active sheet-theme-" + (p.theme || "green");
@@ -919,7 +932,10 @@ function renderAttrSheet(a) {
       ].concat(pendingBonusDice.map((b) => ({ ...b })));
       const dt = Number(document.getElementById("dtInput").value) || 7;
       const r = performTest(dice, dt);
-      renderRollResult(r, "Teste de " + ATTR_LABEL[k]);
+      const label = "Teste de " + ATTR_LABEL[k];
+      renderRollResult(r, label);
+      showRollPopup(r, label);
+      scrollToRoller();
       autoImp(a, r.passed === false);
     });
     el.appendChild(row);
@@ -1051,6 +1067,7 @@ function renderSkillSheet() {
       selectedSkill = s.name;
       renderSkillSheet();
       renderRollerHead(s.name);
+      scrollToRoller();
     });
     el.appendChild(row);
   });
@@ -1132,9 +1149,7 @@ function renderBonusTags() {
   );
 }
 
-function renderRollResult(r, label) {
-  const el = document.getElementById("rollResult");
-  el.style.display = "";
+function buildRollHTML(r, label) {
   let verdict, vClass;
   if (r.passed === true) {
     verdict = r.criticalSuccess ? "SUCESSO CRÍTICO" : "SUCESSO";
@@ -1162,11 +1177,30 @@ function renderRollResult(r, label) {
     const entry = CRIT_FAIL_TABLE.find((e) => e.roll === cfr);
     critFail = `<div class="crit-fail">Falha crítica (1d8 = ${cfr}): <b>${entry.name}</b> — ${esc(entry.text)}</div>`;
   }
-  el.innerHTML = `
+  return `
     <div class="roll-verdict ${vClass}">${esc(label || "")} ${verdict} <small>${r.total} vs DT ${r.dt}</small></div>
     <div class="roll-dice">${chips}</div>
     <div class="roll-meta">Total <b>${r.total}</b> · RA <b>${r.ra}</b> · RB <b>${r.rb}</b>${r.dropped.length ? ` · descartado <b>${r.dropped[0].value}</b>` : ""}</div>
     ${critFail}`;
+}
+
+function renderRollResult(r, label) {
+  const el = document.getElementById("rollResult");
+  el.style.display = "";
+  el.innerHTML = buildRollHTML(r, label);
+}
+
+function showRollPopup(r, label) {
+  document.getElementById("rollPopBody").innerHTML = buildRollHTML(r, label);
+  document.getElementById("rollPop").classList.add("show");
+}
+function hideRollPopup() {
+  document.getElementById("rollPop").classList.remove("show");
+}
+
+function scrollToRoller() {
+  const el = document.querySelector(".roller-card");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function doRoll() {
@@ -1175,7 +1209,9 @@ function doRoll() {
   if (!dice.length) return;
   const dt = Number(document.getElementById("dtInput").value) || 7;
   const r = performTest(dice, dt);
-  renderRollResult(r, "Teste de " + (selectedSkill || "perícia") + ".");
+  const label = "Teste de " + (selectedSkill || "perícia") + ".";
+  renderRollResult(r, label);
+  showRollPopup(r, label);
   if (r.passed === false && currentAgent.profile === "Executor")
     autoImp(currentAgent, true);
 }
@@ -1187,6 +1223,112 @@ function rollInitiative(a) {
   ];
   const r = performTest(dice, null);
   renderRollResult(r, "Iniciativa (Fís + Emo).");
+  showRollPopup(r, "Iniciativa (Fís + Emo).");
+}
+
+/* ---------------- FOTO DO AGENTE ---------------- */
+let photoState = {
+  img: null,
+  F: 320,
+  base: 1,
+  zoom: 1,
+  ox: 0,
+  oy: 0,
+  drag: null,
+};
+
+function openPhotoPicker() {
+  const f = document.getElementById("photoFile");
+  f.value = "";
+  f.click();
+}
+
+function initPhotoEditor(img) {
+  document.getElementById("photoModal").classList.add("show");
+  const frame = document.getElementById("photoFrame");
+  photoState.img = img;
+  photoState.F = frame.clientWidth || 320;
+  photoState.base = Math.max(
+    photoState.F / img.naturalWidth,
+    photoState.F / img.naturalHeight,
+  );
+  photoState.zoom = 1;
+  photoState.scale = photoState.base;
+  photoState.ox = (photoState.F - img.naturalWidth * photoState.scale) / 2;
+  photoState.oy = (photoState.F - img.naturalHeight * photoState.scale) / 2;
+  renderPhoto();
+  document.getElementById("photoZoom").value = 100;
+}
+
+function renderPhoto() {
+  const img = photoState.img;
+  if (!img) return;
+  const el = document.getElementById("photoFrameImg");
+  el.src = img.src;
+  el.style.width = img.naturalWidth * photoState.scale + "px";
+  el.style.height = img.naturalHeight * photoState.scale + "px";
+  el.style.left = photoState.ox + "px";
+  el.style.top = photoState.oy + "px";
+}
+
+function clampPhoto() {
+  const img = photoState.img;
+  if (!img) return;
+  const sw = img.naturalWidth * photoState.scale;
+  const sh = img.naturalHeight * photoState.scale;
+  const F = photoState.F;
+  if (sw <= F) photoState.ox = (F - sw) / 2;
+  else photoState.ox = Math.min(0, Math.max(F - sw, photoState.ox));
+  if (sh <= F) photoState.oy = (F - sh) / 2;
+  else photoState.oy = Math.min(0, Math.max(F - sh, photoState.oy));
+}
+
+function setPhotoZoom(z) {
+  const img = photoState.img;
+  if (!img) return;
+  z = Math.min(5, Math.max(1, z));
+  const cx = photoState.ox + (img.naturalWidth * photoState.scale) / 2;
+  const cy = photoState.oy + (img.naturalHeight * photoState.scale) / 2;
+  photoState.zoom = z;
+  photoState.scale = photoState.base * z;
+  photoState.ox = cx - (img.naturalWidth * photoState.scale) / 2;
+  photoState.oy = cy - (img.naturalHeight * photoState.scale) / 2;
+  clampPhoto();
+  renderPhoto();
+}
+
+function savePhoto() {
+  const img = photoState.img;
+  if (!img || !currentAgent) return;
+  const cx = -photoState.ox / photoState.scale;
+  const cy = -photoState.oy / photoState.scale;
+  const cw = photoState.F / photoState.scale;
+  const out = document.createElement("canvas");
+  out.width = 400;
+  out.height = 400;
+  out.getContext("2d").drawImage(img, cx, cy, cw, cw, 0, 0, 400, 400);
+  currentAgent.photo = out.toDataURL("image/jpeg", 0.85);
+  saveAgent(currentAgent);
+  renderSheet(currentAgent);
+  renderHome();
+  closePhotoEditor();
+  toast("Foto atualizada.");
+}
+
+function clearPhoto() {
+  if (!currentAgent) return;
+  currentAgent.photo = null;
+  saveAgent(currentAgent);
+  renderSheet(currentAgent);
+  renderHome();
+  closePhotoEditor();
+  toast("Foto removida.");
+}
+
+function closePhotoEditor() {
+  document.getElementById("photoModal").classList.remove("show");
+  photoState.img = null;
+  photoState.drag = null;
 }
 
 /* ---------------- Widgets de perfil / ocupação ---------------- */
@@ -1369,6 +1511,7 @@ function widgetMentoria(a, occ) {
     }
     const r = performTest(getDiceForRoll(), 7);
     renderRollResult(r, `Mentoria · ${selectedSkill} (ajuda)`);
+    showRollPopup(r, `Mentoria · ${selectedSkill} (ajuda)`);
     if (r.passed)
       toast("Sucesso! O aliado pode substituir um dado pela sua rolagem alta.");
     else toast("Falha na Mentoria — nenhum dado substituído.");
@@ -1582,6 +1725,73 @@ function bindGlobal() {
     e.preventDefault();
     doLogin();
   });
+
+  document.getElementById("rollPopClose").addEventListener("click", hideRollPopup);
+  document.getElementById("rollPop").addEventListener("click", (e) => {
+    if (e.target.id === "rollPop") hideRollPopup();
+  });
+
+  document.getElementById("sheetAvatar").addEventListener("click", () => {
+    if (!currentAgent) return;
+    if (currentAgent.photo) {
+      const img = new Image();
+      img.onload = () => initPhotoEditor(img);
+      img.src = currentAgent.photo;
+    } else {
+      openPhotoPicker();
+    }
+  });
+  document.getElementById("photoFile").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => initPhotoEditor(img);
+      img.onerror = () => toast("Não foi possível carregar a imagem.");
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  document
+    .getElementById("photoZoom")
+    .addEventListener("input", (e) => setPhotoZoom(Number(e.target.value) / 100));
+  document
+    .getElementById("photoZoomIn")
+    .addEventListener("click", () => setPhotoZoom(photoState.zoom + 0.25));
+  document
+    .getElementById("photoZoomOut")
+    .addEventListener("click", () => setPhotoZoom(photoState.zoom - 0.25));
+  document.getElementById("photoSave").addEventListener("click", savePhoto);
+  document.getElementById("photoNew").addEventListener("click", openPhotoPicker);
+  document.getElementById("photoClear").addEventListener("click", clearPhoto);
+  document.getElementById("photoCancel").addEventListener("click", closePhotoEditor);
+  document.getElementById("photoModal").addEventListener("click", (e) => {
+    if (e.target.id === "photoModal") closePhotoEditor();
+  });
+  const frameEl = document.getElementById("photoFrame");
+  frameEl.addEventListener("pointerdown", (e) => {
+    if (!photoState.img) return;
+    photoState.drag = {
+      x: e.clientX,
+      y: e.clientY,
+      ox: photoState.ox,
+      oy: photoState.oy,
+    };
+    frameEl.setPointerCapture(e.pointerId);
+  });
+  frameEl.addEventListener("pointermove", (e) => {
+    if (!photoState.drag) return;
+    photoState.ox = photoState.drag.ox + (e.clientX - photoState.drag.x);
+    photoState.oy = photoState.drag.oy + (e.clientY - photoState.drag.y);
+    clampPhoto();
+    renderPhoto();
+  });
+  const endPhotoDrag = () => {
+    photoState.drag = null;
+  };
+  frameEl.addEventListener("pointerup", endPhotoDrag);
+  frameEl.addEventListener("pointercancel", endPhotoDrag);
 }
 
 let authMode = "login";

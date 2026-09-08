@@ -103,8 +103,13 @@
   <div class="sheet-head">
     <div class="sheet-head-left">
       <button class="btn ghost small btn-back-list" data-nav="home">← Agentes</button>
-      <h1 id="sheetName" class="sheet-title">—</h1>
-      <div class="sheet-tags" id="sheetTags"></div>
+      <div class="sheet-id">
+        <button type="button" id="sheetAvatar" class="avatar avatar-sheet theme-green" title="Editar foto do agente">✶</button>
+        <div>
+          <h1 id="sheetName" class="sheet-title">—</h1>
+          <div class="sheet-tags" id="sheetTags"></div>
+        </div>
+      </div>
     </div>
     <div class="sheet-head-right">
       <button id="btnRollInit" class="btn ghost small">⇄ Iniciativa (Fís + Emo)</button>
@@ -232,6 +237,28 @@
     </div>
   </div>
 </section>
+
+<div id="rollPop" class="roll-pop"><div class="roll-p-box"><div id="rollPopBody" class="roll-p-body"></div><button id="rollPopClose" class="btn ghost" type="button">Fechar</button></div></div>
+
+<input type="file" id="photoFile" accept="image/*" hidden>
+<div id="photoModal" class="photo-modal">
+  <div class="photo-box">
+    <h3>Foto do agente</h3>
+    <p class="photo-hint">Arraste para posicionar e use o zoom para ajustar o enquadramento.</p>
+    <div id="photoFrame" class="photo-frame"><img id="photoFrameImg" alt="" draggable="false"></div>
+    <div class="photo-zoom">
+      <button type="button" id="photoZoomOut" class="btn small ghost">−</button>
+      <input type="range" id="photoZoom" min="100" max="500" step="1" value="100">
+      <button type="button" id="photoZoomIn" class="btn small ghost">+</button>
+    </div>
+    <div class="photo-actions">
+      <button type="button" id="photoSave" class="btn primary small">Salvar foto</button>
+      <button type="button" id="photoNew" class="btn ghost small">Trocar imagem</button>
+      <button type="button" id="photoClear" class="btn danger small">Remover foto</button>
+      <button type="button" id="photoCancel" class="btn ghost small">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <div id="toast" class="toast"></div>
 <div id="modal" class="modal"><div class="modal-box"><h3 id="modalTitle"></h3><p id="modalText"></p><div id="modalActions"></div></div></div>
