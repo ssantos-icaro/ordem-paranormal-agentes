@@ -552,6 +552,18 @@ select.input{cursor:pointer}
 .attr-row .attr-name.act:hover{color:var(--gold);text-decoration-color:var(--gold)}
 .attr-row:hover{border-color:var(--gold-dim)}
 .attr-controls{display:flex;align-items:center;justify-content:center;gap:8px}
+.attr-actions{float:right;display:flex;gap:6px}
+.attr-icon{
+  width:26px;height:26px;border:1px solid var(--line);background:var(--panel);
+  color:var(--ink-dim);font-family:var(--font-mono);font-size:15px;line-height:1;
+  cursor:pointer;display:grid;place-items:center;padding:0;
+}
+.attr-icon:hover{border-color:var(--gold);color:var(--gold)}
+.attr-icon.confirm{border-color:var(--green);color:var(--green)}
+.attr-icon.confirm:hover{border-color:var(--green);color:#fff;box-shadow:0 0 10px rgba(93,138,99,.4)}
+.attr-sheet .attr-adjust{opacity:.35;pointer-events:none;transition:opacity .15s}
+.attr-sheet.edit-mode .attr-adjust{opacity:1;pointer-events:auto}
+.hidden{display:none!important}
 .attr-row .attr-die{
   font-family:var(--font-mono);font-weight:700;font-size:19px;color:var(--gold);
   min-width:48px;text-align:center;border:1px solid var(--line);padding:2px 6px;

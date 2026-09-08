@@ -919,9 +919,22 @@ function renderSheet(a) {
   renderSkillSheet();
   renderProfileWidgets(a);
   renderCritZone(a);
+  renderAttrTools();
   document.getElementById("rollResult").style.display = "none";
   renderRollerHead(selectedSkill || "");
   showScreen("sheet");
+}
+
+let attrEditMode = false;
+
+function renderAttrTools() {
+  const pen = document.getElementById("btnAttrEdit");
+  const ok = document.getElementById("btnAttrConfirm");
+  const sheet = document.getElementById("sheetAttrs");
+  if (!pen || !ok || !sheet) return;
+  pen.classList.toggle("hidden", attrEditMode);
+  ok.classList.toggle("hidden", !attrEditMode);
+  sheet.classList.toggle("edit-mode", attrEditMode);
 }
 
 function renderAttrSheet(a) {
@@ -960,6 +973,10 @@ function renderAttrSheet(a) {
 function adjustAttr(k, delta) {
   const a = currentAgent;
   if (!a) return;
+  if (!attrEditMode) {
+    toast("Clique na caneta (✎) para editar os atributos.");
+    return;
+  }
   const cur = a.attrs[k];
   const next = stepDie(cur, delta);
   if (next === cur) {
@@ -1915,6 +1932,16 @@ function bindGlobal() {
     document.getElementById("rollResult").style.display = "none";
   });
 
+  document.getElementById("btnAttrEdit").addEventListener("click", () => {
+    attrEditMode = true;
+    renderAttrTools();
+    toast("Editando atributos — use −/+ e confirme com ✓.");
+  });
+  document.getElementById("btnAttrConfirm").addEventListener("click", () => {
+    attrEditMode = false;
+    renderAttrTools();
+    toast("Alterações de atributos confirmadas.");
+  });
   document.getElementById("btnRoll").addEventListener("click", doRoll);
   document.getElementById("btnFreeRoll").addEventListener("click", doFreeRoll);
   document.getElementById("freeRollInput").addEventListener("keydown", (e) => {
