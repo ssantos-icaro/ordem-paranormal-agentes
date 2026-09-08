@@ -962,8 +962,6 @@ function adjustAttr(k, delta) {
   a.attrs[k] = next;
   a.pv_max = a.pv_max + (a.attrs.fisico - oldF);
   a.pd_max = a.pd_max + (a.attrs.emocao - oldE);
-  a.pv_current = Math.min(a.pv_current, a.pv_max);
-  a.pd_current = Math.min(a.pd_current, a.pd_max);
   saveAgent(a);
   renderSheet(a);
   toast(`${ATTR_LABEL[k]} agora é d${next}.`);
@@ -1042,18 +1040,23 @@ function autoImp(agent, failed) {
 }
 
 function renderResourceRow(agent, key) {
-  const max = agent[key + "_max"];
-  const cur = agent[key + "_current"];
-  const pct = max ? Math.max(0, Math.min(1, cur / max)) : 0;
   const label = key === "pv" ? "PV" : "PD";
+  const cur = agent[key + "_current"] ?? 0;
+  const max = agent[key + "_max"] ?? 0;
+  const over = max > 0 && cur > max;
+  const pct = max > 0 ? Math.min(1, cur / max) : 0;
   return `
     <div class="res-row">
       <span class="res-label">${label}</span>
+      <button class="res-btn" data-key="${key}" data-d="-5">−5</button>
       <button class="res-btn" data-key="${key}" data-d="-1">−</button>
-      <span class="res-num">${cur}/${max}</span>
+      <input class="res-num res-cur" id="resCur-${key}" type="number" min="0" value="${cur}">
+      <span class="res-slash">/</span>
+      <input class="res-num res-max" id="resMax-${key}" type="number" min="0" value="${max}">
       <button class="res-btn" data-key="${key}" data-d="1">+</button>
+      <button class="res-btn" data-key="${key}" data-d="5">+5</button>
     </div>
-    <div class="res-track"><div class="res-fill" style="width:${Math.round(pct * 100)}%"></div></div>`;
+    <div class="res-track"><div class="res-fill${over ? " over" : ""}" style="width:${Math.round(pct * 100)}%"></div></div>`;
 }
 
 function renderVitals(a) {
@@ -1063,15 +1066,25 @@ function renderVitals(a) {
     b.addEventListener("click", () => {
       const key = b.dataset.key;
       const d = Number(b.dataset.d);
-      const max = a[key + "_max"];
-      a[key + "_current"] = Math.max(
-        0,
-        Math.min(max, (a[key + "_current"] || 0) + d),
-      );
+      a[key + "_current"] = Math.max(0, (a[key + "_current"] || 0) + d);
       saveAgent(a);
       renderVitals(a);
     }),
   );
+  ["pv", "pd"].forEach((key) => {
+    const curIn = el.querySelector("#resCur-" + key);
+    const maxIn = el.querySelector("#resMax-" + key);
+    const commit = () => {
+      const c = parseInt(curIn.value, 10);
+      const m = parseInt(maxIn.value, 10);
+      if (!Number.isNaN(c)) a[key + "_current"] = Math.max(0, c);
+      if (!Number.isNaN(m)) a[key + "_max"] = Math.max(0, m);
+      saveAgent(a);
+      renderVitals(a);
+    };
+    curIn.addEventListener("change", commit);
+    maxIn.addEventListener("change", commit);
+  });
 }
 
 function renderAbilities(a) {

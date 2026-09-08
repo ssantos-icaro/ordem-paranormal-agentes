@@ -571,13 +571,19 @@ select.input{cursor:pointer}
 .crit-penalty .card-title{color:var(--red)}
 .crit-p-info{color:var(--ink-dim);font-size:14.5px;margin-bottom:12px}
 
-.res-row{display:flex;align-items:center;gap:10px;margin-top:4px}
+.res-row{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
 .res-label{font-family:var(--font-display);font-size:12px;letter-spacing:.2em;color:var(--ink-faint);width:52px;flex:none}
-.res-btn{width:28px;height:28px;flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:var(--font-mono);font-size:15px;cursor:pointer;line-height:1}
+.res-btn{min-width:28px;height:28px;flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-family:var(--font-mono);font-size:15px;cursor:pointer;line-height:1;padding:0 5px}
 .res-btn:hover{border-color:var(--gold);color:var(--gold)}
-.res-num{font-family:var(--font-mono);font-size:15px;color:var(--ink);min-width:88px;text-align:center}
+.res-num{
+  width:52px;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  font-family:var(--font-mono);font-size:15px;text-align:center;padding:4px 2px;flex:none;
+}
+.res-num:focus{outline:none;border-color:var(--gold-dim)}
+.res-slash{color:var(--ink-faint);font-family:var(--font-mono);flex:none}
 .res-track{height:6px;background:var(--panel2);border:1px solid var(--line-soft);overflow:hidden;margin-top:6px}
 .res-fill{height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--red));transition:width .2s ease}
+.res-fill.over{background:linear-gradient(90deg,var(--gold-dim),var(--gold));box-shadow:0 0 8px rgba(184,155,94,.5)}
 
 .ab-desc{font-size:13px;color:var(--ink-faint);margin-bottom:8px}
 .profile-widget{margin-bottom:12px}
