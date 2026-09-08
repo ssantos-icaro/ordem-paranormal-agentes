@@ -1052,13 +1052,15 @@ function renderResourceRow(agent, key) {
   return `
     <div class="res-row">
       <span class="res-label">${label}</span>
-      <button class="res-btn" data-key="${key}" data-d="-5">−5</button>
-      <button class="res-btn" data-key="${key}" data-d="-1">−</button>
-      <input class="res-num res-cur" id="resCur-${key}" type="number" min="0" value="${cur}">
-      <span class="res-slash">/</span>
-      <input class="res-num res-max" id="resMax-${key}" type="number" min="0" value="${max}">
-      <button class="res-btn" data-key="${key}" data-d="1">+</button>
-      <button class="res-btn" data-key="${key}" data-d="5">+5</button>
+      <button class="res-btn" data-key="${key}" data-d="-5" title="−5">«</button>
+      <button class="res-btn" data-key="${key}" data-d="-1" title="−1">‹</button>
+      <span class="res-num">
+        <input class="res-input res-cur" id="resCur-${key}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${cur}">
+        <span class="res-slash">/</span>
+        <input class="res-input res-max" id="resMax-${key}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${max}">
+      </span>
+      <button class="res-btn" data-key="${key}" data-d="1" title="+1">›</button>
+      <button class="res-btn" data-key="${key}" data-d="5" title="+5">»</button>
     </div>
     <div class="res-track"><div class="res-fill${over ? " over" : ""}" style="width:${Math.round(pct * 100)}%"></div></div>`;
 }
