@@ -2,16 +2,22 @@
 
 const { Pool } = require('pg');
 
-/* Banco PostgreSQL (Supabase). A URL de conexão vem da variável
-   de ambiente DATABASE_URL definida no painel do Supabase
-   (Pooler / Transaction mode na porta 6543) e injetada no Render. */
+/* Banco PostgreSQL. A URL de conexão vem da variável de ambiente
+   DATABASE_URL (Neon / Supabase / etc.) injetada no Render. */
+function cleanUrl(url) {
+  if (!url) return url;
+  // o parâmetro channel_binding=require pode quebrar o driver `pg`
+  return url
+    .replace(/[?&]channel_binding=[^&]+/, '')
+    .replace(/[?&]channel_binding=[^&]+$/, '');
+}
+
+const rawUrl =
+  process.env.DATABASE_URL ||
+  'postgres://postgres:postgres@localhost:5432/op2';
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    'postgres://postgres:postgres@localhost:5432/op2',
-  ssl: process.env.DATABASE_URL
-    ? { rejectUnauthorized: false }
-    : false,
+  connectionString: cleanUrl(rawUrl),
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 });
 
 async function initDb() {

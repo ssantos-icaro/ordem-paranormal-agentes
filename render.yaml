@@ -9,4 +9,4 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-        value: postgresql://postgres:7M1"t0VsSx59@db.yamjiqnfvnlkldbblubu.supabase.co:5432/postgres
+        value: postgresql://neondb_owner:npg_X2voHxUK3pzr@ep-nameless-sunset-acvzs9az-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
