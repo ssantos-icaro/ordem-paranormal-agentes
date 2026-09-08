@@ -297,6 +297,8 @@ select.input{cursor:pointer}
 
 .sheet-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;max-width:1280px;margin:0 auto}
 .sheet-col{display:flex;flex-direction:column;gap:16px}
+#sheetProfileWidgets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 20px;max-width:1280px;margin:0 auto;width:100%}
+#sheetProfileWidgets .profile-widget{margin-bottom:0}
 
 .attr-sheet{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .attr-chip{
@@ -472,6 +474,7 @@ select.input{cursor:pointer}
   .create-layout{grid-template-columns:1fr}
   .wizard-side{position:static}
   .sheet-grid{grid-template-columns:1fr}
+  #sheetProfileWidgets{grid-template-columns:1fr}
   .attr-editor{grid-template-columns:1fr}
   .field-row{grid-template-columns:1fr}
   .pvpd{grid-template-columns:1fr}
@@ -516,8 +519,9 @@ select.input{cursor:pointer}
   .rules-grid{grid-template-columns:1fr}
   .login-wrap{padding-top:3vh}
   .roll-verdict{font-size:16px}
-  .attr-row{font-size:12px;padding:9px 10px;gap:8px}
+  .attr-row{font-size:12px;padding:9px 10px;gap:6px}
   .attr-row .attr-die{font-size:17px;min-width:42px}
+  .attr-controls{gap:6px}
 }
 @media (max-width:400px){
   .screen{padding:10px}
@@ -532,16 +536,16 @@ select.input{cursor:pointer}
 .hint{color:var(--ink-faint);font-size:13px;font-style:italic}
 
 .attr-row{
-  display:flex;align-items:center;gap:10px;width:100%;
+  display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%;
   border:1px solid var(--line-soft);background:var(--panel);
   padding:10px 12px;cursor:default;color:var(--ink);
   font-family:var(--font-display);font-size:13px;letter-spacing:.12em;
-  text-align:left;
+  text-align:center;
   overflow:hidden;
 }
-.attr-row > span{min-width:0}
-.attr-row .attr-name{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attr-row .attr-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .attr-row:hover{border-color:var(--gold-dim)}
+.attr-controls{display:flex;align-items:center;justify-content:center;gap:8px}
 .attr-row .attr-die{
   font-family:var(--font-mono);font-weight:700;font-size:19px;color:var(--gold);
   min-width:48px;text-align:center;border:1px solid var(--line);padding:2px 6px;
@@ -553,8 +557,6 @@ select.input{cursor:pointer}
   cursor:pointer;display:grid;place-items:center;padding:0;
 }
 .attr-adjust:hover{border-color:var(--gold);color:var(--gold)}
-.attr-row .hint.act{color:var(--gold-dim);flex:none;white-space:nowrap;cursor:pointer;font-style:italic}
-.attr-row .hint.act:hover{color:var(--gold)}
 
 /* rolagem livre */
 .free-roll{display:flex;gap:10px}
