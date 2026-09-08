@@ -872,9 +872,10 @@ function renderSheet(a) {
   document.getElementById("sheetName").className =
     "sheet-title theme-" + (p.theme || "green");
   const sheetEl = document.getElementById("screen-sheet");
-  sheetEl.className = "screen active theme-" + (p.theme || "green");
+  sheetEl.className =
+    "screen active sheet-theme-" + (p.theme || "green");
   const stripEl = document.getElementById("sheetStrip");
-  stripEl.className = "sheet-strip theme-" + (p.theme || "green");
+  stripEl.className = "sheet-strip";
   renderAttrSheet(a);
   renderVitals(a);
   renderAbilities(a);
