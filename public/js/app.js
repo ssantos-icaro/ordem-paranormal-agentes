@@ -82,6 +82,7 @@ const OCCUPATIONS = [
       name: "Conhecimento Técnico",
       text: "Você possui uma perícia mental aumentada para d6.",
       kind: "passive",
+      bonus: { attr: "mente" },
     },
   },
   {
@@ -107,6 +108,7 @@ const OCCUPATIONS = [
       name: "Esforço e suor",
       text: "Você possui uma perícia física aumentada para d6.",
       kind: "passive",
+      bonus: { attr: "fisico" },
     },
   },
   {
@@ -641,8 +643,12 @@ function buildOcupacao(div) {
 }
 
 /* --- 6. Perícias --- */
+function occSkillBonus() {
+  const o = OCCUPATIONS.find((x) => x.name === draft.occupation);
+  return o && o.ability.bonus;
+}
 function skillPool() {
-  return draft.attrs.mente;
+  return draft.attrs.mente + (occSkillBonus() ? 1 : 0);
 }
 function skillUsed() {
   return Object.values(draft.skills).reduce(
@@ -655,9 +661,15 @@ function buildPericias(div) {
   const pool = skillPool();
   const used = skillUsed();
   const cap = skillCap(draft.level);
+  const bonus = occSkillBonus();
+  const occ = OCCUPATIONS.find((o) => o.name === draft.occupation);
   div.innerHTML = `
     <h2 class="step-title">Perícias</h2>
-    <p class="step-sub">Pontos = <b>máximo da Mente</b> (d${pool} → ${pool} pontos). Cada ponto eleva a perícia um passo (d4 → d6 → …). Teto no nível ${draft.level}: <b>d${cap}</b>.</p>
+    <p class="step-sub">Pontos = <b>máximo da Mente</b> (d${draft.attrs.mente} → ${draft.attrs.mente} pontos)${
+      bonus
+        ? ` · <b style="color:var(--gold)">+1 ponto da ${esc(occ.ability.name)}</b> (só perícias ${ATTR_ADJ[bonus.attr]})`
+        : ""
+    }. Cada ponto eleva a perícia um passo (d4 → d6 → …). Teto no nível ${draft.level}: <b>d${cap}</b>.</p>
     <div class="skill-pool">
       <span class="pool-n" style="${used > pool ? "color:var(--red)" : ""}">${used}/${pool}</span>
       <small>pontos gastos / disponíveis ${used > pool ? '· <b style="color:var(--red)">excedeu!</b>' : ""}</small>
@@ -686,6 +698,11 @@ function buildPericias(div) {
       if (d > 0) {
         if (used >= pool) {
           toast("Sem pontos de perícia suficientes.");
+          return;
+        }
+        const sdef = SKILL_DEFS.find((s) => s.name === name);
+        if (bonus && used >= draft.attrs.mente && sdef && sdef.attr !== bonus.attr) {
+          toast(`O ponto extra de ${occ.ability.name} só vale em perícias ${ATTR_ADJ[bonus.attr]}.`);
           return;
         }
         const next = stepDie(cur, 1);
