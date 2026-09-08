@@ -8,4 +8,5 @@ services:
     startCommand: node server.js
     envVars:
       - key: DATABASE_URL
-        value: postgres://POSTGRESQL_USER:PASSWORD@db.XXXX.supabase.co:5432/postgres
+        sync: false
+        value: postgresql://postgres:7M1"t0VsSx59@db.yamjiqnfvnlkldbblubu.supabase.co:5432/postgres
