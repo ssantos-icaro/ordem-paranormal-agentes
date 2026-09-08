@@ -1,0 +1,1644 @@
+"use strict";
+
+/* ============================================================
+   ORDEM PARANORMAL RPG 2 — Criador de Agentes
+   Regras reconstruídas pela comunidade (@SkStatic_) a partir do
+   playtest alpha "A Maldição do Ídolo de Pedra". Não-oficial.
+   ============================================================ */
+
+/* ---------------- Constantes do sistema ---------------- */
+const DIE_STEPS = [4, 6, 8, 10, 12, 20];
+
+function stepDie(value, delta) {
+  const i = DIE_STEPS.indexOf(value);
+  if (i === -1) return value;
+  const next = Math.min(DIE_STEPS.length - 1, Math.max(0, i + delta));
+  return DIE_STEPS[next];
+}
+function dieLabel(v) {
+  return "d" + v;
+}
+
+const ATTR_LABEL = { fisico: "Físico", mente: "Mente", emocao: "Emoção" };
+const ATTR_ADJ = { fisico: "físico", mente: "mental", emocao: "emocional" };
+
+const SKILL_DEFS = [
+  { name: "Acrobacia", attr: "fisico" },
+  { name: "Aptidão", attr: "mente" },
+  { name: "Atletismo", attr: "fisico" },
+  { name: "Crime", attr: "fisico" },
+  { name: "Disciplina", attr: "emocao" },
+  { name: "Enganação", attr: "emocao" },
+  { name: "Furtividade", attr: "fisico" },
+  { name: "Intimidar", attr: "emocao" },
+  { name: "Intuição", attr: "emocao" },
+  { name: "Luta", attr: "fisico" },
+  { name: "Máquinas", attr: "mente" },
+  { name: "Medicina", attr: "mente" },
+  { name: "Ocultismo", attr: "mente" },
+  { name: "Percepção", attr: "mente" },
+  { name: "Persuasão", attr: "emocao" },
+  { name: "Pesquisar", attr: "mente" },
+  { name: "Pontaria", attr: "fisico" },
+  { name: "Sobrevivência", attr: "mente" },
+  { name: "Tecnologia", attr: "mente" },
+  { name: "Vigor", attr: "fisico" },
+];
+
+const PROFILES = {
+  Executor: {
+    icon: "⚔",
+    theme: "red",
+    desc: "Age primeiro e lida bem com a pressão. Especialista em conflito e ação direta.",
+    ability: {
+      title: "Ímpeto",
+      text: "Você possui uma barra de Ímpeto com três espaços. Sempre que falha em um teste, preenche um espaço. Pode apagar espaços para: (1 espaço) receber +1d4 em um teste; (3 espaços) aumentar um atributo em um passo até o fim da cena.",
+    },
+  },
+  Analista: {
+    icon: "◈",
+    theme: "blue",
+    desc: "Foca em observação, preparo e precisão nas ações. O cérebro da investigação.",
+    ability: {
+      title: "Avaliação",
+      text: "Você pode gastar uma ação e 2 PD para observar um ser ou ambiente. Recebe dois dados bônus que pode usar em testes relativos àquele alvo (juntos ou separados, +1d4 cada). Não acumula mais de dois dados por esta habilidade.",
+    },
+  },
+  Vigilante: {
+    icon: "☽",
+    theme: "green",
+    desc: "Fica atento ao ambiente e reage rapidamente às ameaças. Nunca é pego de surpresa.",
+    ability: {
+      title: "Prontidão",
+      text: "No início de qualquer conflito, você pode gastar 3 PD. Se fizer isso, ganha uma rodada na qual pode agir antes dos demais personagens e NPCs.",
+    },
+  },
+};
+
+const OCCUPATIONS = [
+  {
+    name: "Profissional de Escritório",
+    ability: {
+      name: "Conhecimento Técnico",
+      text: "Você possui uma perícia mental aumentada para d6.",
+      kind: "passive",
+    },
+  },
+  {
+    name: "Professor",
+    ability: {
+      name: "Mentoria",
+      text: "Quando ajuda outro personagem, você pode fazer um teste da perícia que usou para ajudar contra DT 7. Se passar, o personagem ajudado pode substituir um dos dados rolados por ele pela sua rolagem alta.",
+      kind: "mentoria",
+    },
+  },
+  {
+    name: "Cientista",
+    ability: {
+      name: "Foco mental",
+      text: "Quando faz um teste mental, você pode gastar 2 PD para receber +1d4 no teste.",
+      kind: "focus",
+      focus: "mente",
+    },
+  },
+  {
+    name: "Operário",
+    ability: {
+      name: "Esforço e suor",
+      text: "Você possui uma perícia física aumentada para d6.",
+      kind: "passive",
+    },
+  },
+  {
+    name: "Artista",
+    ability: {
+      name: "Foco emocional",
+      text: "Quando faz um teste emocional, você pode gastar 2 PD para receber +1d4 no teste.",
+      kind: "focus",
+      focus: "emocao",
+    },
+  },
+  {
+    name: "Médico",
+    ability: {
+      name: "Técnica Medicinal",
+      text: "Quando faz um teste emocional, você pode gastar 2 PD para receber +1d4 no teste.",
+      kind: "focus",
+      focus: "emocao",
+    },
+  },
+  {
+    name: "Policial",
+    ability: {
+      name: "Incansável",
+      text: "Uma vez por cena de conflito, você pode gastar 5 PV para fazer uma ação extra.",
+      kind: "acaoExtra",
+    },
+  },
+];
+
+const CRIT_FAIL_TABLE = [
+  {
+    roll: 1,
+    name: "Vexame",
+    text: "Descreva a ação de forma vergonhosa. Sem efeito de regra, além da falha.",
+  },
+  {
+    roll: 2,
+    name: "Machucado",
+    text: "Físico diminui um passo até o fim da cena.",
+  },
+  {
+    roll: 3,
+    name: "Desatenção",
+    text: "Mente diminui um passo até o fim da cena.",
+  },
+  {
+    roll: 4,
+    name: "Irritação",
+    text: "Emoção diminui um passo até o fim da cena.",
+  },
+  { roll: 5, name: "Acidente", text: "Perde 1d4 PV." },
+  { roll: 6, name: "Frustração", text: "Perde 1d4 PD." },
+  { roll: 7, name: "Perda", text: "Um item carregado se perde." },
+  { roll: 8, name: "Nenhum efeito adicional", text: "" },
+];
+
+const SYMBOLS = ["◉", "☰", "△", "⬡", "◈", "✶", "☾", "☗", "❖", "✚"];
+
+const FIRST_NAMES = [
+  "Bianca",
+  "Caio",
+  "Diana",
+  "Elias",
+  "Fabiana",
+  "Gustavo",
+  "Helena",
+  "Igor",
+  "Júlia",
+  "Kleber",
+  "Lucas",
+  "Marina",
+  "Nando",
+  "Otávia",
+  "Paulo",
+  "Renata",
+  "Sérgio",
+  "Tânia",
+  "Ulisses",
+  "Vera",
+];
+const LAST_NAMES = [
+  "Aguiar",
+  "Barreto",
+  "Cordeiro",
+  "Dantas",
+  "Esteves",
+  "Farias",
+  "Guimarães",
+  "Hortêncio",
+  "Ibrahim",
+  "Junqueira",
+  "Klein",
+  "Lacerda",
+  "Mafra",
+  "Nogueira",
+  "Orsini",
+  "Pimentel",
+  "Quintana",
+  "Ribas",
+  "Salgado",
+  "Teixeira",
+];
+
+/* ---------------- Estado ---------------- */
+const AUTH_KEY = "op2_token";
+let currentUser = null;
+let agents = [];
+
+function getToken() {
+  return localStorage.getItem(AUTH_KEY) || "";
+}
+
+/* ---------------- API ---------------- */
+async function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign(
+    { "Content-Type": "application/json" },
+    opts.headers || {},
+  );
+  const token = getToken();
+  if (token) opts.headers.Authorization = "Bearer " + token;
+  const res = await fetch(path, opts);
+  if (res.status === 401) {
+    doLogout();
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Erro no servidor.");
+  return data;
+}
+
+function apiGet(path) {
+  return api(path);
+}
+function apiPut(path, body) {
+  return api(path, { method: "PUT", body: JSON.stringify(body) });
+}
+function apiDelete(path) {
+  return api(path, { method: "DELETE" });
+}
+
+let draft = {
+  name: "",
+  age: "",
+  concept: "",
+  symbol: "✶",
+  attrs: { fisico: 6, mente: 6, emocao: 6 },
+  profile: null,
+  occupation: null,
+  level: 2,
+  skills: {},
+  pvAlloc: null,
+  pdAlloc: null,
+  notes: "",
+  inventory: [],
+};
+
+const STEPS = [
+  { id: "identidade", label: "Identidade" },
+  { id: "atributos", label: "Atributos" },
+  { id: "nivel", label: "Nível" },
+  { id: "perfil", label: "Perfil" },
+  { id: "ocupacao", label: "Ocupação" },
+  { id: "pericias", label: "Perícias" },
+  { id: "vital", label: "PV & PD" },
+];
+let stepIndex = 0;
+let selectedSkill = null;
+let pendingBonusDice = [];
+let currentAgent = null;
+
+/* ---------------- Ajudantes ---------------- */
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s ?? "";
+  return d.innerHTML;
+}
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function rollDie(sides) {
+  return 1 + Math.floor(Math.random() * sides);
+}
+
+function performTest(dice, dt) {
+  const rolled = dice.map((d) => ({ ...d, value: rollDie(d.sides) }));
+  let counted = rolled,
+    dropped = [];
+  if (rolled.length > 3) {
+    const sorted = [...rolled].sort((a, b) => b.value - a.value);
+    counted = sorted.slice(0, 3);
+    dropped = sorted.slice(3);
+  }
+  const total = counted.reduce((s, d) => s + d.value, 0);
+  const values = counted.map((d) => d.value);
+  const ra = Math.max(...values);
+  const rb = Math.min(...values);
+  const vc = {};
+  values.forEach((v) => {
+    vc[v] = (vc[v] || 0) + 1;
+  });
+  const criticalSuccess = Object.entries(vc).some(
+    ([v, c]) => Number(v) >= 6 && c >= 2,
+  );
+  const criticalFail = values.length >= 2 && values.every((v) => v === 1);
+  const passed =
+    dt === null || dt === undefined || dt === "" ? null : total >= dt;
+  return {
+    rolled,
+    counted,
+    dropped,
+    total,
+    ra,
+    rb,
+    criticalSuccess,
+    criticalFail,
+    passed,
+    dt: dt ?? null,
+  };
+}
+
+/* ---------------- API de agentes (servidor) ---------------- */
+function saveAgent(a) {
+  putAgent(a);
+}
+async function putAgent(a) {
+  try {
+    await apiPut("/api/agents/" + encodeURIComponent(a.id), a);
+  } catch (e) {
+    if (!(e instanceof Error && /expirou|login/i.test(e.message))) toast(e.message);
+  }
+}
+
+/* ---------------- Navegação de telas ---------------- */
+function showScreen(id) {
+  document
+    .querySelectorAll(".screen")
+    .forEach((s) => s.classList.remove("active"));
+  document.getElementById("screen-" + id).classList.add("active");
+  window.scrollTo(0, 0);
+  if (id === "home") renderHome();
+  if (id === "create") renderWizard();
+}
+
+/* ---------------- HOME ---------------- */
+function renderHome() {
+  const list = document.getElementById("agentList");
+  list.classList.toggle("empty", agents.length === 0);
+  list.innerHTML = agents.length
+    ? ""
+    : `
+    <div class="card" style="text-align:center;grid-column:1/-1">
+      Nenhum agente ainda. Toque em <b>Criar novo agente</b> para montar sua ficha.
+    </div>`;
+  agents.forEach((a) => {
+    const card = document.createElement("div");
+    card.className = "agent-card";
+    const p = PROFILES[a.profile] || {};
+    card.innerHTML = `
+      <button class="ac-del" title="Excluir">✕</button>
+      <div class="ac-top">
+        <div class="avatar theme-${p.theme || "green"}">${esc(a.symbol || "✶")}</div>
+        <div>
+          <div class="ac-name">${esc(a.name || "Sem nome")}</div>
+          <div class="ac-meta">${esc(a.profile || "")} · ${esc(a.occupation || "")} · Nível ${a.level}</div>
+        </div>
+      </div>
+      <div class="ac-bar">
+        <span>PV ${a.pv_current}/${a.pv_max}</span>
+        <span>PD ${a.pd_current}/${a.pd_max}</span>
+      </div>`;
+    card.querySelector(".ac-del").addEventListener("click", (e) => {
+      e.stopPropagation();
+      confirmModal("Excluir agente?", `"${a.name}" será apagado permanentemente.`, async () => {
+        await apiDelete("/api/agents/" + encodeURIComponent(a.id));
+        agents = agents.filter((x) => x.id !== a.id);
+        renderHome();
+      });
+    });
+    card.addEventListener("click", () => openSheet(a.id));
+    list.appendChild(card);
+  });
+}
+
+/* ---------------- WIZARD ---------------- */
+function renderWizard() {
+  const sl = document.getElementById("stepList");
+  sl.innerHTML = "";
+  STEPS.forEach((st, i) => {
+    const li = document.createElement("li");
+    li.dataset.i = i;
+    li.textContent = st.label;
+    li.classList.toggle("active", i === stepIndex);
+    li.classList.toggle("done", i < stepIndex);
+    li.addEventListener("click", () => {
+      stepIndex = i;
+      renderWizard();
+    });
+    sl.appendChild(li);
+  });
+
+  const panels = document.getElementById("stepPanels");
+  panels.innerHTML = "";
+  STEPS.forEach((st, i) => panels.appendChild(buildStep(i)));
+  updateRuleSummary();
+
+  document.getElementById("stepCounter").textContent =
+    `${String(stepIndex + 1).padStart(2, "0")} / ${String(STEPS.length).padStart(2, "0")}`;
+  document.getElementById("btnPrev").disabled = stepIndex === 0;
+  document.getElementById("btnNext").textContent =
+    stepIndex === STEPS.length - 1 ? "Concluir ficha →" : "Próximo →";
+}
+
+function buildStep(i) {
+  const div = document.createElement("div");
+  div.className = "step-panel" + (i === stepIndex ? " active" : "");
+  const id = STEPS[i].id;
+  const crate = {
+    identidade: buildIdentidade,
+    atributos: buildAtributos,
+    nivel: buildNivel,
+    perfil: buildPerfil,
+    ocupacao: buildOcupacao,
+    pericias: buildPericias,
+    vital: buildVital,
+  }[id];
+  if (crate) crate(div);
+  return div;
+}
+
+/* --- 1. Identidade --- */
+function buildIdentidade(div) {
+  div.innerHTML = `
+    <h2 class="step-title">Identidade</h2>
+    <p class="step-sub">Quem é essa pessoa? Dê nome e um motivo para ter cruzado com o Outro Lado.</p>
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="inName" class="input" value="${esc(draft.name)}" placeholder="Nome do agente" maxlength="40">
+      <button class="btn ghost small" id="btnRandomName" style="margin-top:8px">Sortear nome</button>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Idade</label>
+        <input type="text" id="inAge" class="input" value="${esc(draft.age)}" placeholder="ex.: 28 anos" maxlength="20">
+      </div>
+      <div class="field">
+        <label>Símbolo</label>
+        <div class="symbol-picker" id="symbolPicker" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Conceito (resuma em uma frase)</label>
+      <textarea id="inConcept" class="input" rows="2" placeholder='ex.: "Uma ex-policial que ainda espera por justiça."'>${esc(draft.concept)}</textarea>
+    </div>`;
+  div.querySelector("#btnRandomName").addEventListener("click", () => {
+    const n = pick(FIRST_NAMES) + " " + pick(LAST_NAMES);
+    draft.name = n;
+    div.querySelector("#inName").value = n;
+  });
+  div.querySelector("#inName").addEventListener("input", (e) => {
+    draft.name = e.target.value;
+  });
+  div.querySelector("#inAge").addEventListener("input", (e) => {
+    draft.age = e.target.value;
+  });
+  div.querySelector("#inConcept").addEventListener("input", (e) => {
+    draft.concept = e.target.value;
+  });
+
+  const sp = div.querySelector("#symbolPicker");
+  SYMBOLS.forEach((sym) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "a-step";
+    b.style.cssText = "width:38px;height:38px;font-size:18px";
+    b.textContent = sym;
+    if (draft.symbol === sym) {
+      b.style.borderColor = "var(--blood)";
+      b.style.color = "var(--blood)";
+    }
+    b.addEventListener("click", () => {
+      draft.symbol = sym;
+      renderWizard();
+    });
+    sp.appendChild(b);
+  });
+}
+
+/* --- 2. Atributos --- */
+function attrBudget() {
+  const base = DIE_STEPS.indexOf(6);
+  const stepAbove = (k) => Math.max(0, DIE_STEPS.indexOf(draft.attrs[k]) - base);
+  const d4count = ["fisico", "mente", "emocao"].filter((k) => draft.attrs[k] === 4).length;
+  const raises = stepAbove("fisico") + stepAbove("mente") + stepAbove("emocao");
+  const lowers = d4count >= 1 ? 1 : 0;
+  return { used: raises, budget: 2 + lowers, remaining: 2 + lowers - raises, d4count };
+}
+
+function buildAtributos(div) {
+  const b = attrBudget();
+  div.innerHTML = `
+    <h2 class="step-title">Atributos</h2>
+    <p class="step-sub">Todos os atributos começam em <b>d6</b>. Um <b>ponto</b> sobe um atributo em um passo (d6 → d8 custa <b>1 ponto</b>, não 2). Você pode reduzir <b>exatamente um</b> atributo para <b>d4</b> e ganhar +1 ponto.</p>
+    <div class="attr-editor">
+      ${["fisico", "mente", "emocao"]
+        .map(
+          (a) => `
+        <div class="attr-box">
+          <div class="a-name">${ATTR_LABEL[a]}</div>
+          <div class="a-tag">${a === "fisico" ? "PV" : a === "emocao" ? "PD" : "Pontos de perícia"}</div>
+          <span class="a-die">${dieLabel(draft.attrs[a])}</span>
+          <div class="a-controls">
+            <button class="a-step" data-attr="${a}" data-d="-1">−</button>
+            <button class="a-step" data-attr="${a}" data-d="1">+</button>
+          </div>
+        </div>`,
+        )
+        .join("")}
+    </div>
+    <div class="budget-bar">
+      <span class="budget-n ${b.remaining === 0 ? "ok" : ""}">${b.remaining} pts</span>
+      <small>restantes &middot; gastos <b>${b.used}</b> de <b>${b.budget}</b>${b.d4count ? " &middot; redução a d4: <b>+1 ponto</b>" : ""} &middot; máximo na criação: <b>d10</b></small>
+    </div>`;
+  div.querySelectorAll(".a-step").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const attr = btn.dataset.attr;
+      const d = Number(btn.dataset.d);
+      const cur = draft.attrs[attr];
+      let next;
+      if (d > 0) {
+        if (attrBudget().remaining <= 0) return;
+        next = stepDie(cur, 1);
+        if (next > 10) return;
+      } else {
+        next = stepDie(cur, -1);
+        if (next < 4) return;
+        if (cur !== 4 && next === 4 && attrBudget().d4count >= 1) {
+          toast("Apenas um atributo pode ser reduzido a d4.");
+          return;
+        }
+      }
+      draft.attrs[attr] = next;
+      renderWizard();
+    });
+  });
+}
+
+/* --- 3. Nível --- */
+function skillCap(level) {
+  if (level >= 6) return 12;
+  if (level >= 4) return 10;
+  if (level >= 2) return 8;
+  return 6;
+}
+const VITAL_POOL = () => draft.level * 6;
+
+function buildNivel(div) {
+  const maxSkill = skillCap(draft.level);
+  div.innerHTML = `
+    <h2 class="step-title">Nível</h2>
+    <p class="step-sub">Separação de Nível (1 a 10) e NEX. O nível define suas perícias máximas e seu poço de PV/PD.</p>
+    <div class="field">
+      <label>Nível (1 a 10)</label>
+      <select id="inLevel" class="input">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((l) => `<option value="${l}" ${l === draft.level ? "selected" : ""}>Nível ${l}</option>`).join("")}
+      </select>
+    </div>
+    <div class="rule-summary" style="margin-top:0">
+      <b>Perícia máxima:</b> d${maxSkill} &nbsp;·&nbsp; <b>Poço de PV/PD:</b> ${draft.level * 6} pontos
+      &nbsp;·&nbsp; <b>d8</b> (nível 2+) · <b>d10</b> (nível 4+) · <b>d12</b> (nível 6+)
+    </div>`;
+  div.querySelector("#inLevel").addEventListener("change", (e) => {
+    draft.level = Number(e.target.value);
+    SKILL_DEFS.forEach((s) => {
+      if (draft.skills[s.name] > skillCap(draft.level))
+        draft.skills[s.name] = skillCap(draft.level);
+    });
+    renderWizard();
+  });
+}
+
+/* --- 4. Perfil --- */
+function buildPerfil(div) {
+  div.innerHTML = `
+    <h2 class="step-title">Perfil</h2>
+    <p class="step-sub">Como seu personagem resolve problemas? Cada perfil concede uma habilidade única.</p>
+    <div class="choice-grid">
+      ${["Executor", "Analista", "Vigilante"]
+        .map((p) => {
+          const pr = PROFILES[p];
+          return `
+        <div class="choice-card ${draft.profile === p ? "selected" : ""}" data-p="${p}">
+          <span class="cc-tag">${pr.icon} PERFIL</span>
+          <h4>${p}</h4>
+          <p>${pr.desc}</p>
+          <p style="margin-top:8px;color:var(--ink)"><b>${pr.ability.title}:</b> ${pr.ability.text}</p>
+        </div>`;
+        })
+        .join("")}
+    </div>`;
+  div.querySelectorAll(".choice-card").forEach((c) => {
+    c.addEventListener("click", () => {
+      draft.profile = c.dataset.p;
+      renderWizard();
+    });
+  });
+}
+
+/* --- 5. Ocupação --- */
+function buildOcupacao(div) {
+  div.innerHTML = `
+    <h2 class="step-title">Ocupação</h2>
+    <p class="step-sub">Sua vida antes (e depois) da Ordem. Cada ocupação concede uma habilidade única, passiva ou ativa.</p>
+    <div class="choice-grid">
+      ${OCCUPATIONS.map(
+        (o) => `
+        <div class="choice-card ${draft.occupation === o.name ? "selected" : ""}" data-o="${o.name}">
+          <span class="cc-tag">OCUPAÇÃO · ${o.ability.kind === "passive" ? "HABILIDADE PASSIVA" : "HABILIDADE ATIVA"}</span>
+          <h4>${o.name}</h4>
+          <p style="margin-top:8px;color:var(--ink)"><b>${esc(o.ability.name)}:</b> ${esc(o.ability.text)}</p>
+        </div>`,
+      ).join("")}
+    </div>`;
+  div.querySelectorAll(".choice-card").forEach((c) => {
+    c.addEventListener("click", () => {
+      draft.occupation = c.dataset.o;
+      renderWizard();
+    });
+  });
+}
+
+/* --- 6. Perícias --- */
+function skillPool() {
+  return draft.attrs.mente;
+}
+function skillUsed() {
+  return Object.values(draft.skills).reduce(
+    (s, die) => s + (DIE_STEPS.indexOf(die) - DIE_STEPS.indexOf(4)),
+    0,
+  );
+}
+
+function buildPericias(div) {
+  const pool = skillPool();
+  const used = skillUsed();
+  const cap = skillCap(draft.level);
+  div.innerHTML = `
+    <h2 class="step-title">Perícias</h2>
+    <p class="step-sub">Pontos = <b>máximo da Mente</b> (d${pool} → ${pool} pontos). Cada ponto eleva a perícia um passo (d4 → d6 → …). Teto no nível ${draft.level}: <b>d${cap}</b>.</p>
+    <div class="skill-pool">
+      <span class="pool-n" style="${used > pool ? "color:var(--red)" : ""}">${used}/${pool}</span>
+      <small>pontos gastos / disponíveis ${used > pool ? '· <b style="color:var(--red)">excedeu!</b>' : ""}</small>
+    </div>
+    <div class="skill-editor">
+      ${SKILL_DEFS.map((s) => {
+        const die = draft.skills[s.name] || 4;
+        const overcapped = die > cap;
+        return `
+        <div class="skill-row">
+          <button class="sn" data-sk="${s.name}" data-d="-1">−</button>
+          <div style="flex:1">
+            <div class="s-name">${s.name}</div>
+            <div class="sattr">${ATTR_LABEL[s.attr]}</div>
+          </div>
+          <button class="sn" data-sk="${s.name}" data-d="1">+</button>
+          <span class="s-die ${overcapped ? "capped" : ""}">d${die}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+  div.querySelectorAll(".sn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.sk;
+      const d = Number(btn.dataset.d);
+      const cur = draft.skills[name] || 4;
+      if (d > 0) {
+        if (used >= pool) {
+          toast("Sem pontos de perícia suficientes.");
+          return;
+        }
+        const next = stepDie(cur, 1);
+        if (next > cap) {
+          toast(`Teto de d${cap} para o nível ${draft.level}.`);
+          return;
+        }
+        draft.skills[name] = next;
+      } else {
+        if (cur <= 4) return;
+        draft.skills[name] = stepDie(cur, -1);
+        if (draft.skills[name] === 4) delete draft.skills[name];
+      }
+      renderWizard();
+    });
+  });
+}
+
+/* --- 7. PV & PD --- */
+function buildVital(div) {
+  if (draft.pvAlloc === null || draft.pdAlloc === null) {
+    draft.pvAlloc = Math.floor(VITAL_POOL() / 2);
+    draft.pdAlloc = VITAL_POOL() - draft.pvAlloc;
+  }
+  const pool = VITAL_POOL();
+  const pvMax = draft.attrs.fisico + draft.pvAlloc;
+  const pdMax = draft.attrs.emocao + draft.pdAlloc;
+  div.innerHTML = `
+    <h2 class="step-title">Vitalidade — PV & PD</h2>
+    <p class="step-sub"><b>PV</b> começa no máximo do seu Físico (d${draft.attrs.fisico}); <b>PD</b> no máximo da sua Emoção (d${draft.attrs.emocao}). Distribua o poço de <b>${pool} pontos</b> do nível ${draft.level} entre as duas.</p>
+    <div class="pvpd">
+      <div class="pv-box">
+        <div class="b-title">PONTOS DE VIDA (PV)</div>
+        <div class="b-total">${pvMax}</div>
+        <small>Físico d${draft.attrs.fisico} + ${draft.pvAlloc} alocados</small>
+      </div>
+      <div class="pd-box">
+        <div class="b-title">PONTOS DE DETERMINAÇÃO (PD)</div>
+        <div class="b-total">${pdMax}</div>
+        <small>Emoção d${draft.attrs.emocao} + ${draft.pdAlloc} alocados</small>
+      </div>
+    </div>
+    <div class="range-wrap">
+      <label style="font-family:var(--font-display);font-size:12px;letter-spacing:.18em;color:var(--gold);display:block;margin-bottom:8px">Para onde vai o poço?</label>
+      <input type="range" id="pvSlider" min="0" max="${pool}" value="${draft.pvAlloc}" step="1">
+      <div class="range-labels">
+        <span>PV: ${draft.pvAlloc} (total ${pvMax})</span>
+        <span>PD: ${draft.pdAlloc} (total ${pdMax})</span>
+      </div>
+    </div>`;
+  div.querySelector("#pvSlider").addEventListener("input", (e) => {
+    draft.pvAlloc = Number(e.target.value);
+    draft.pdAlloc = pool - draft.pvAlloc;
+    renderWizard();
+  });
+}
+
+/* ---------------- Resumo de regras (sidebar) ---------------- */
+function updateRuleSummary() {
+  const el = document.getElementById("ruleSummary");
+  if (!el) return;
+  const step = STEPS[stepIndex];
+  if (!step) return;
+  let html = "";
+  switch (step.id) {
+    case "atributos": {
+      const b = attrBudget();
+      html = `<b>Atributos:</b> ${b.used}/${b.budget} pts usados. Máximo na criação: d10.`;
+      break;
+    }
+    case "nivel":
+      html = `<b>Nível:</b> teto de perícia d${skillCap(draft.level)} · poço de vital ${draft.level * 6} pts.`;
+      break;
+    case "perfil":
+      html = `<b>Perfil:</b> Executor (Ímpeto) · Analista (Avaliação) · Vigilante (Prontidão).`;
+      break;
+    case "ocupacao":
+      html = `<b>Ocupação:</b> cada uma concede uma habilidade única (passiva ou ativa).`;
+      break;
+    case "pericias": {
+      const used = skillUsed();
+      html = `<b>Perícias:</b> ${used}/${skillPool()} pts usados · teto d${skillCap(draft.level)}.`;
+      break;
+    }
+    case "vital": {
+      const pool = VITAL_POOL();
+      html = `<b>Vital:</b> ${draft.pvAlloc ?? "—"} PV · ${draft.pdAlloc ?? "—"} PD de um poço de ${pool}.`;
+      break;
+    }
+    default:
+      html = 'Regras da comunidade — detalhes em "Regras & Métodos".';
+  }
+  el.innerHTML = html;
+}
+
+/* ---------------- Finalização ---------------- */
+function freshDraft() {
+  return {
+    name: "",
+    age: "",
+    concept: "",
+    symbol: "✶",
+    attrs: { fisico: 6, mente: 6, emocao: 6 },
+    profile: null,
+    occupation: null,
+    level: 2,
+    skills: {},
+    pvAlloc: null,
+    pdAlloc: null,
+    notes: "",
+    inventory: [],
+  };
+}
+
+function finalizeDraft() {
+  if (!draft.profile) {
+    toast("Escolha um perfil para o agente.");
+    stepIndex = 3;
+    renderWizard();
+    return;
+  }
+  if (!draft.occupation) {
+    toast("Escolha uma ocupação.");
+    stepIndex = 4;
+    renderWizard();
+    return;
+  }
+  if (skillUsed() > skillPool()) {
+    toast("Pontos de perícia excedidos.");
+    stepIndex = 5;
+    renderWizard();
+    return;
+  }
+  const pvMax = draft.attrs.fisico + (draft.pvAlloc ?? 0);
+  const pdMax = draft.attrs.emocao + (draft.pdAlloc ?? 0);
+  const a = {
+    id: "a" + Date.now() + Math.floor(Math.random() * 1000),
+    name: draft.name || "Agente sem nome",
+    age: draft.age,
+    concept: draft.concept,
+    symbol: draft.symbol,
+    attrs: { ...draft.attrs },
+    profile: draft.profile,
+    occupation: draft.occupation,
+    level: draft.level,
+    skills: { ...draft.skills },
+    pv_max: pvMax,
+    pv_current: pvMax,
+    pd_max: pdMax,
+    pd_current: pdMax,
+    impeto: 0,
+    pronto: false,
+    notes: "",
+    inventory: [],
+  };
+  saveAgent(a);
+  draft = freshDraft();
+  stepIndex = 0;
+  selectedSkill = null;
+  pendingBonusDice = [];
+  openSheet(a.id);
+}
+
+/* ---------------- FICHA ---------------- */
+function openSheet(id) {
+  const a = agents.find((x) => x.id === id);
+  if (!a) {
+    showScreen("home");
+    return;
+  }
+  renderSheet(a);
+}
+
+function renderSheet(a) {
+  currentAgent = a;
+  document.getElementById("sheetName").textContent =
+    a.name || "Agente sem nome";
+  const p = PROFILES[a.profile] || {};
+  document.getElementById("sheetTags").innerHTML =
+    `<span class="tag">${esc(a.profile || "")}</span>` +
+    `<span class="tag">${esc(a.occupation || "")}</span>` +
+    `<span class="tag">Nível ${a.level}</span>` +
+    `<span class="tag tag-sym theme-${p.theme || "green"}">${esc(a.symbol || "✶")}</span>`;
+  document.getElementById("sheetName").className =
+    "sheet-title theme-" + (p.theme || "green");
+  const sheetEl = document.getElementById("screen-sheet");
+  sheetEl.className = "screen active theme-" + (p.theme || "green");
+  const stripEl = document.getElementById("sheetStrip");
+  stripEl.className = "sheet-strip theme-" + (p.theme || "green");
+  renderAttrSheet(a);
+  renderVitals(a);
+  renderAbilities(a);
+  renderInventory(a);
+  document.getElementById("sheetNotes").value = a.notes || "";
+  renderSkillSheet();
+  renderProfileWidgets(a);
+  document.getElementById("rollResult").style.display = "none";
+  renderRollerHead(selectedSkill || "");
+  showScreen("sheet");
+}
+
+function renderAttrSheet(a) {
+  const el = document.getElementById("sheetAttrs");
+  el.innerHTML = "";
+  ["fisico", "mente", "emocao"].forEach((k) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "attr-row";
+    row.innerHTML = `<span>${ATTR_LABEL[k]}</span><span class="attr-die">d${a.attrs[k]}</span><span class="hint act" style="margin-left:auto">testar</span>`;
+    row.addEventListener("click", () => {
+      const dice = [
+        { sides: a.attrs[k], label: ATTR_LABEL[k], type: "attr" },
+      ].concat(pendingBonusDice.map((b) => ({ ...b })));
+      const dt = Number(document.getElementById("dtInput").value) || 7;
+      const r = performTest(dice, dt);
+      renderRollResult(r, "Teste de " + ATTR_LABEL[k]);
+      autoImp(a, r.passed === false);
+    });
+    el.appendChild(row);
+  });
+}
+
+function autoImp(agent, failed) {
+  if (failed && agent.profile === "Executor") {
+    agent.impeto = Math.min(3, (agent.impeto || 0) + 1);
+    saveAgent(agent);
+    renderProfileWidgets(agent);
+  }
+}
+
+function renderResourceRow(agent, key) {
+  const max = agent[key + "_max"];
+  const cur = agent[key + "_current"];
+  const pct = max ? Math.max(0, Math.min(1, cur / max)) : 0;
+  const label = key === "pv" ? "PV" : "PD";
+  return `
+    <div class="res-row">
+      <span class="res-label">${label}</span>
+      <button class="res-btn" data-key="${key}" data-d="-1">−</button>
+      <span class="res-num">${cur}/${max}</span>
+      <button class="res-btn" data-key="${key}" data-d="1">+</button>
+    </div>
+    <div class="res-track"><div class="res-fill" style="width:${Math.round(pct * 100)}%"></div></div>`;
+}
+
+function renderVitals(a) {
+  const el = document.getElementById("sheetVitals");
+  el.innerHTML = renderResourceRow(a, "pv") + renderResourceRow(a, "pd");
+  el.querySelectorAll(".res-btn").forEach((b) =>
+    b.addEventListener("click", () => {
+      const key = b.dataset.key;
+      const d = Number(b.dataset.d);
+      const max = a[key + "_max"];
+      a[key + "_current"] = Math.max(
+        0,
+        Math.min(max, (a[key + "_current"] || 0) + d),
+      );
+      saveAgent(a);
+      renderVitals(a);
+    }),
+  );
+}
+
+function renderAbilities(a) {
+  const el = document.getElementById("sheetAbilities");
+  el.innerHTML = "";
+  const p = PROFILES[a.profile];
+  if (p) {
+    const card = document.createElement("div");
+    card.className = "ability-card";
+    card.innerHTML = `<h4>${esc(p.ability.title)} <small>· ${esc(a.profile)}</small></h4><p>${esc(p.ability.text)}</p>`;
+    el.appendChild(card);
+  }
+  const occ = OCCUPATIONS.find((o) => o.name === a.occupation);
+  if (occ) {
+    const card = document.createElement("div");
+    card.className = "ability-card";
+    card.innerHTML = `<h4>${esc(occ.ability.name)} <small>· ${esc(a.occupation)}</small></h4>
+      <p>${esc(occ.ability.text)}</p>`;
+    el.appendChild(card);
+  }
+  if (!p && !occ)
+    el.innerHTML = '<p class="hint">Sem habilidades definidas.</p>';
+}
+
+function renderInventory(a) {
+  const el = document.getElementById("sheetInventory");
+  const items = a.inventory || [];
+  el.innerHTML = `
+    <div class="inv-add">
+      <input type="text" id="invInput" class="input" placeholder="ex.: Lanterna, Diário de D. Maria..." maxlength="60">
+      <button id="btnInvAdd" class="btn small" type="button">+</button>
+    </div>
+    ${
+      items
+        .map(
+          (it, i) => `
+      <div class="inv-row"><span>${esc(it)}</span><button class="inv-del" data-i="${i}" type="button" title="Remover">✕</button></div>`,
+        )
+        .join("") || '<p class="hint">Inventário vazio.</p>'
+    }`;
+  const inp = el.querySelector("#invInput");
+  const add = () => {
+    const v = inp.value.trim();
+    if (!v) {
+      toast("Digite um item.");
+      return;
+    }
+    a.inventory = a.inventory || [];
+    a.inventory.push(v);
+    inp.value = "";
+    saveAgent(a);
+    renderInventory(a);
+  };
+  el.querySelector("#btnInvAdd").addEventListener("click", add);
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") add();
+  });
+  el.querySelectorAll(".inv-del").forEach((b) =>
+    b.addEventListener("click", () => {
+      a.inventory.splice(Number(b.dataset.i), 1);
+      saveAgent(a);
+      renderInventory(a);
+    }),
+  );
+}
+
+/* ---------------- Perícias (ficha) ---------------- */
+function renderSkillSheet() {
+  if (!currentAgent) return;
+  const f = document.getElementById("skillFilter").value;
+  const q = (document.getElementById("skillSearch").value || "")
+    .toLowerCase()
+    .trim();
+  const el = document.getElementById("skillList");
+  el.innerHTML = "";
+  SKILL_DEFS.forEach((s) => {
+    if (f !== "all" && s.attr !== f) return;
+    if (q && !s.name.toLowerCase().includes(q)) return;
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "skill-item" + (selectedSkill === s.name ? " sel" : "");
+    row.innerHTML = `<span class="s-die">d${currentAgent.skills[s.name] || 4}</span><span class="s-name">${s.name}</span><span class="s-attr">${ATTR_LABEL[s.attr]}</span>`;
+    row.addEventListener("click", () => {
+      selectedSkill = s.name;
+      renderSkillSheet();
+      renderRollerHead(s.name);
+    });
+    el.appendChild(row);
+  });
+  if (!el.children.length)
+    el.innerHTML = '<p class="hint">Nenhuma perícia encontrada.</p>';
+}
+
+function renderRollerHead(name) {
+  document.getElementById("rollerSkillName").textContent =
+    name || "selecione uma perícia";
+  updateDicePreview();
+}
+
+/* ---------------- Rolador de dados ---------------- */
+function getDiceForRoll() {
+  const dice = [];
+  if (selectedSkill && currentAgent) {
+    const def = SKILL_DEFS.find((s) => s.name === selectedSkill);
+    dice.push({
+      sides: currentAgent.skills[selectedSkill] || 4,
+      label: selectedSkill,
+      type: "skill",
+    });
+    if (def)
+      dice.push({
+        sides: currentAgent.attrs[def.attr],
+        label: ATTR_LABEL[def.attr],
+        type: "attr",
+      });
+  }
+  pendingBonusDice.forEach((b) => dice.push({ ...b }));
+  return dice;
+}
+
+function updateDicePreview() {
+  const dice = getDiceForRoll();
+  const el = document.getElementById("dicePreview");
+  el.innerHTML = dice.length
+    ? dice
+        .map(
+          (d) =>
+            `<span class="die-chip ${d.type === "bonus" ? "bonus" : ""}">${esc(d.label)} · d${d.sides}</span>`,
+        )
+        .join("")
+    : '<span class="hint">Escolha uma perícia na lista ao lado.</span>';
+  document.getElementById("btnRoll").disabled = !dice.length;
+}
+
+function addBonusDie(type, label) {
+  if (pendingBonusDice.length >= 2) {
+    toast("Máximo de 2 dados bônus por teste.");
+    return false;
+  }
+  pendingBonusDice.push({
+    sides: 4,
+    label: label || "Bônus",
+    type: type || "bonus",
+  });
+  renderBonusTags();
+  updateDicePreview();
+  return true;
+}
+function removeBonusDie(i) {
+  pendingBonusDice.splice(i, 1);
+  renderBonusTags();
+  updateDicePreview();
+}
+function renderBonusTags() {
+  const el = document.getElementById("bonusDiceTags");
+  el.innerHTML = "";
+  pendingBonusDice.forEach((b, i) => {
+    const t = document.createElement("span");
+    t.className = "bonus-tag";
+    t.innerHTML = `+1d4 ${esc(b.label)} <button class="bt-x" data-i="${i}" type="button">✕</button>`;
+    el.appendChild(t);
+  });
+  el.querySelectorAll(".bt-x").forEach((x) =>
+    x.addEventListener("click", () => removeBonusDie(Number(x.dataset.i))),
+  );
+}
+
+function renderRollResult(r, label) {
+  const el = document.getElementById("rollResult");
+  el.style.display = "";
+  let verdict, vClass;
+  if (r.passed === true) {
+    verdict = r.criticalSuccess ? "SUCESSO CRÍTICO" : "SUCESSO";
+    vClass = "gold";
+  } else if (r.passed === false) {
+    verdict = r.criticalFail ? "FALHA CRÍTICA" : "FALHA";
+    vClass = "red";
+  } else {
+    verdict = r.criticalSuccess
+      ? "CRÍTICO!"
+      : r.criticalFail
+        ? "FALHA CRÍTICA"
+        : "—";
+    vClass = r.criticalSuccess ? "gold" : r.criticalFail ? "red" : "ink";
+  }
+  const chips = r.rolled
+    .map(
+      (d) =>
+        `<span class="die-chip ${d.type === "bonus" ? "bonus" : ""}">d${d.sides} → <b>${d.value}</b></span>`,
+    )
+    .join(" ");
+  let critFail = "";
+  if (r.criticalFail) {
+    const cfr = rollDie(8);
+    const entry = CRIT_FAIL_TABLE.find((e) => e.roll === cfr);
+    critFail = `<div class="crit-fail">Falha crítica (1d8 = ${cfr}): <b>${entry.name}</b> — ${esc(entry.text)}</div>`;
+  }
+  el.innerHTML = `
+    <div class="roll-verdict ${vClass}">${esc(label || "")} ${verdict} <small>${r.total} vs DT ${r.dt}</small></div>
+    <div class="roll-dice">${chips}</div>
+    <div class="roll-meta">Total <b>${r.total}</b> · RA <b>${r.ra}</b> · RB <b>${r.rb}</b>${r.dropped.length ? ` · descartado <b>${r.dropped[0].value}</b>` : ""}</div>
+    ${critFail}`;
+}
+
+function doRoll() {
+  if (!currentAgent) return;
+  const dice = getDiceForRoll();
+  if (!dice.length) return;
+  const dt = Number(document.getElementById("dtInput").value) || 7;
+  const r = performTest(dice, dt);
+  renderRollResult(r, "Teste de " + (selectedSkill || "perícia") + ".");
+  if (r.passed === false && currentAgent.profile === "Executor")
+    autoImp(currentAgent, true);
+}
+
+function rollInitiative(a) {
+  const dice = [
+    { sides: a.attrs.fisico, label: "Físico", type: "attr" },
+    { sides: a.attrs.emocao, label: "Emoção", type: "attr" },
+  ];
+  const r = performTest(dice, null);
+  renderRollResult(r, "Iniciativa (Fís + Emo).");
+}
+
+/* ---------------- Widgets de perfil / ocupação ---------------- */
+function makeWidget(inner) {
+  const c = document.createElement("div");
+  c.className = "ability-card profile-widget";
+  c.innerHTML = inner;
+  return c;
+}
+
+function afterAgentChange(agent) {
+  saveAgent(agent);
+  renderSheet(agent);
+}
+
+function renderProfileWidgets(a) {
+  const parent = document.getElementById("sheetProfileWidgets");
+  if (!parent) return;
+  parent.querySelectorAll(".profile-widget").forEach((el) => el.remove());
+  if (a.profile === "Executor") parent.appendChild(widgetImpeto(a));
+  if (a.profile === "Analista") parent.appendChild(widgetAvaliacao(a));
+  if (a.profile === "Vigilante") parent.appendChild(widgetProntidao(a));
+  if (a.occupation) parent.appendChild(widgetOcupacao(a));
+}
+
+function widgetImpeto(a) {
+  const spaces = [1, 2, 3]
+    .map(
+      (i) =>
+        `<span class="imp-cell${i <= (a.impeto || 0) ? " filled" : ""}" data-i="${i}"></span>`,
+    )
+    .join("");
+  const impDie = pendingBonusDice.some((b) => b.type === "imp");
+  const boost = a.impBoost;
+  const boostHtml = boost
+    ? `<div class="imp-boost"><span class="tb-hint">Passo temporário ativo: <b>${ATTR_LABEL[boost.attr]}</b> d${a.attrs[boost.attr]} (base d${boost.base})</span><button class="btn small ghost" id="impRevert" type="button">Reverter (fim da cena)</button></div>`
+    : "";
+  const w = makeWidget(`
+    <h4>Ímpeto <small>· Executor</small></h4>
+    <p class="ab-desc">Falhas em testes preenchem um espaço automaticamente.</p>
+    <div class="imp-bar">${spaces}</div>
+    ${boostHtml}
+    <div class="ab-actions">
+      <button class="btn small" id="impUse1" type="button" ${a.impeto >= 1 ? "" : "disabled"}>Gastar 1 · +1d4</button>
+      <button class="btn small" id="impUse3" type="button" ${a.impeto >= 3 ? "" : "disabled"}>Gastar 3 · passo de atributo</button>
+      ${impDie ? '<button class="btn small ghost" id="impDropDie" type="button">Retirar dado bônus do Ímpeto</button>' : ""}
+    </div>`);
+  w.querySelectorAll(".imp-cell").forEach((c) =>
+    c.addEventListener("click", () => {
+      const i = Number(c.dataset.i);
+      a.impeto = a.impeto === i ? 0 : i;
+      afterAgentChange(a);
+    }),
+  );
+  w.querySelector("#impUse1").addEventListener("click", () => {
+    if (!(a.impeto >= 1)) return;
+    a.impeto -= 1;
+    const ok = addBonusDie("imp", "Ímpeto");
+    if (ok) afterAgentChange(a);
+    else a.impeto += 1;
+  });
+  w.querySelector("#impUse3").addEventListener("click", () => {
+    if (!(a.impeto >= 3)) return;
+    if (a.impBoost) {
+      toast("Já há um passo de Ímpeto ativo nesta cena.");
+      return;
+    }
+    attrChoiceModal(
+      "Passo de atributo",
+      "Escolha o atributo a aumentar em um passo até o fim da cena:",
+      [
+        { label: "Físico", value: "fisico" },
+        { label: "Mente", value: "mente" },
+        { label: "Emoção", value: "emocao" },
+      ],
+      (sel) => {
+        a.impeto -= 3;
+        a.impBoost = { attr: sel, base: a.attrs[sel] };
+        a.attrs[sel] = stepDie(a.attrs[sel], 1);
+        afterAgentChange(a);
+        toast(ATTR_LABEL[sel] + " +1 passo até o fim da cena.");
+      },
+    );
+  });
+  if (impDie) {
+    w.querySelector("#impDropDie").addEventListener("click", () => {
+      const i = pendingBonusDice.findIndex((b) => b.type === "imp");
+      if (i >= 0) {
+        removeBonusDie(i);
+        renderProfileWidgets(a);
+      }
+    });
+  }
+  if (boost) {
+    w.querySelector("#impRevert").addEventListener("click", () => {
+      a.attrs[boost.attr] = boost.base;
+      delete a.impBoost;
+      afterAgentChange(a);
+      toast("Passo temporário do Ímpeto revertido.");
+    });
+  }
+  return w;
+}
+
+function widgetAvaliacao(a) {
+  const w = makeWidget(`
+    <h4>Avaliação <small>· Analista</small></h4>
+    <p class="ab-desc">Gaste uma ação e 2 PD para observar um ser ou ambiente. Até 2 dados bônus (+1d4) para usar contra o alvo.</p>
+    <div class="ab-actions"><button class="btn small" id="aObs" type="button">Observar (−2 PD) · +1d4</button></div>`);
+  w.querySelector("#aObs").addEventListener("click", () => {
+    if (pendingBonusDice.length >= 2) {
+      toast("Limite de dados bônus atingido.");
+      return;
+    }
+    if ((a.pd_current || 0) < 2) {
+      toast("PD insuficientes.");
+      return;
+    }
+    a.pd_current -= 2;
+    const ok = addBonusDie("aval", "Avaliação");
+    if (ok) afterAgentChange(a);
+    else a.pd_current += 2;
+  });
+  return w;
+}
+
+function widgetOcupacao(a) {
+  const occ = OCCUPATIONS.find((o) => o.name === a.occupation);
+  if (!occ) return makeWidget("");
+  const ab = occ.ability;
+  if (ab.kind === "focus") return widgetFocusAbility(a, occ, ab);
+  if (ab.kind === "mentoria") return widgetMentoria(a, occ);
+  if (ab.kind === "acaoExtra") return widgetAcaoExtra(a, occ);
+  return makeWidget("");
+}
+
+function widgetFocusAbility(a, occ, ab) {
+  const samples = SKILL_DEFS.filter((s) => s.attr === ab.focus)
+    .slice(0, 2)
+    .map((s) => s.name)
+    .join(", ");
+  const w = makeWidget(`
+    <h4>${esc(ab.name)} <small>· ${esc(occ.name)}</small></h4>
+    <p class="ab-desc">Gaste 2 PD para receber +1d4 em um teste ${ATTR_ADJ[ab.focus]} (ex.: ${samples}).</p>
+    <div class="ab-actions"><button class="btn small" id="occFocus" type="button">Ativar ${esc(ab.name)} (−2 PD)</button></div>`);
+  w.querySelector("#occFocus").addEventListener("click", () => {
+    const skillDef =
+      selectedSkill && SKILL_DEFS.find((s) => s.name === selectedSkill);
+    if (!skillDef || skillDef.attr !== ab.focus) {
+      toast(
+        `Use ${ab.name} em um teste ${ATTR_ADJ[ab.focus]} — selecione uma perícia ${ATTR_ADJ[ab.focus]} (ex.: ${samples}).`,
+      );
+      return;
+    }
+    if (pendingBonusDice.length >= 2) {
+      toast("Limite de dados bônus atingido.");
+      return;
+    }
+    if ((a.pd_current || 0) < 2) {
+      toast("PD insuficientes.");
+      return;
+    }
+    a.pd_current -= 2;
+    const ok = addBonusDie("occ", ab.name);
+    if (ok) afterAgentChange(a);
+    else a.pd_current += 2;
+  });
+  return w;
+}
+
+function widgetMentoria(a, occ) {
+  const w = makeWidget(`
+    <h4>${esc(occ.ability.name)} <small>· ${esc(occ.name)}</small></h4>
+    <p class="ab-desc">Ao ajudar outro personagem, teste a perícia usada contra DT 7. Se passar (sucesso ou crítico), o ajudado pode substituir um dos dados rolados pela sua rolagem alta.</p>
+    <div class="ab-actions"><button class="btn small" id="occMentoria" type="button">Ajudar aliado (DT 7)</button></div>`);
+  w.querySelector("#occMentoria").addEventListener("click", () => {
+    if (!selectedSkill || !currentAgent) {
+      toast("Selecione a perícia usada para ajudar (na lista à direita).");
+      return;
+    }
+    const r = performTest(getDiceForRoll(), 7);
+    renderRollResult(r, `Mentoria · ${selectedSkill} (ajuda)`);
+    if (r.passed)
+      toast("Sucesso! O aliado pode substituir um dado pela sua rolagem alta.");
+    else toast("Falha na Mentoria — nenhum dado substituído.");
+  });
+  return w;
+}
+
+function widgetAcaoExtra(a, occ) {
+  const usado = !!a.incansavelUsado;
+  const w = makeWidget(`
+    <h4>${esc(occ.ability.name)} <small>· ${esc(occ.name)}</small></h4>
+    <p class="ab-desc">Uma vez por cena de conflito, gaste 5 PV para fazer uma ação extra.</p>
+    <div class="ab-actions">
+      <button class="btn small" id="occAcao" type="button" ${(a.pv_current || 0) >= 5 && !usado ? "" : "disabled"}>Ação extra (−5 PV)</button>
+      <button class="btn small ghost" id="occReset" type="button" ${usado ? "" : "disabled"}>Fim da cena</button>
+    </div>`);
+  w.querySelector("#occAcao").addEventListener("click", () => {
+    if (usado) return;
+    if ((a.pv_current || 0) < 5) {
+      toast("PV insuficientes.");
+      return;
+    }
+    a.pv_current -= 5;
+    a.incansavelUsado = true;
+    afterAgentChange(a);
+    toast("Ação extra! Você age fora do seu turno.");
+  });
+  w.querySelector("#occReset").addEventListener("click", () => {
+    a.incansavelUsado = false;
+    afterAgentChange(a);
+    toast("Nova cena: Incansável disponível novamente.");
+  });
+  return w;
+}
+
+function widgetProntidao(a) {
+  const w = makeWidget(`
+    <h4>Prontidão <small>· Vigilante</small></h4>
+    <p class="ab-desc">No início de um conflito, gaste 3 PD para ganhar uma rodada agindo antes de todos.</p>
+    <div class="ab-actions"><button class="btn small" id="pPronto" type="button">Gastar 3 PD</button></div>`);
+  w.querySelector("#pPronto").addEventListener("click", () => {
+    if ((a.pd_current || 0) < 3) {
+      toast("PD insuficientes.");
+      return;
+    }
+    confirmModal(
+      "Prontidão",
+      "Gastar 3 PD para agir primeiro no próximo conflito?",
+      () => {
+        a.pd_current -= 3;
+        a.pronto = true;
+        afterAgentChange(a);
+        toast("Prontidão ativa!");
+      },
+    );
+  });
+  return w;
+}
+
+/* ---------------- Exportar ---------------- */
+function exportAgent(a) {
+  const blob = new Blob([JSON.stringify(a, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const x = document.createElement("a");
+  x.href = url;
+  x.download =
+    (a.name || "agente").replace(/[^a-zA-Z0-9 _-]/g, "") + ".op2.json";
+  document.body.appendChild(x);
+  x.click();
+  document.body.removeChild(x);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------- Modais / toast ---------------- */
+function showModal(title, text) {
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalText").textContent = text;
+  document.getElementById("modal").classList.add("show");
+}
+function hideModal() {
+  document.getElementById("modal").classList.remove("show");
+}
+
+function confirmModal(title, text, onOk) {
+  showModal(title, text);
+  const actions = document.getElementById("modalActions");
+  actions.innerHTML = "";
+  const yes = document.createElement("button");
+  yes.className = "btn primary";
+  yes.textContent = "Sim";
+  yes.addEventListener("click", () => {
+    hideModal();
+    if (onOk) onOk();
+  });
+  const no = document.createElement("button");
+  no.className = "btn ghost";
+  no.textContent = "Cancelar";
+  no.addEventListener("click", hideModal);
+  actions.appendChild(yes);
+  actions.appendChild(no);
+}
+
+function attrChoiceModal(title, text, options, cb) {
+  showModal(title, text);
+  const actions = document.getElementById("modalActions");
+  actions.innerHTML = "";
+  options.forEach((o) => {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = o.label;
+    b.addEventListener("click", () => {
+      hideModal();
+      if (cb) cb(o.value);
+    });
+    actions.appendChild(b);
+  });
+  const cancel = document.createElement("button");
+  cancel.className = "btn ghost";
+  cancel.textContent = "Cancelar";
+  cancel.addEventListener("click", hideModal);
+  actions.appendChild(cancel);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ---------------- Inicialização ---------------- */
+function bindGlobal() {
+  document.querySelectorAll("[data-nav]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const target = b.dataset.nav;
+      if (target === "create") {
+        stepIndex = 0;
+        draft = freshDraft();
+      }
+      showScreen(target);
+    }),
+  );
+
+  document.getElementById("btnPrev").addEventListener("click", () => {
+    if (stepIndex > 0) {
+      stepIndex--;
+      renderWizard();
+    }
+  });
+  document.getElementById("btnNext").addEventListener("click", () => {
+    if (stepIndex < STEPS.length - 1) {
+      stepIndex++;
+      renderWizard();
+    } else finalizeDraft();
+  });
+
+  document.getElementById("dtInput").addEventListener("input", () => {
+    document.getElementById("rollResult").style.display = "none";
+  });
+
+  document.getElementById("btnRoll").addEventListener("click", doRoll);
+  document
+    .getElementById("btnRollInit")
+    .addEventListener(
+      "click",
+      () => currentAgent && rollInitiative(currentAgent),
+    );
+  document
+    .getElementById("btnExport")
+    .addEventListener("click", () => currentAgent && exportAgent(currentAgent));
+  document.getElementById("btnDelete").addEventListener("click", () => {
+    if (!currentAgent) return;
+    confirmModal(
+      "Excluir agente?",
+      `"${currentAgent.name}" será apagado permanentemente.`,
+      async () => {
+        await apiDelete("/api/agents/" + encodeURIComponent(currentAgent.id));
+        agents = agents.filter((x) => x.id !== currentAgent.id);
+        currentAgent = null;
+        showScreen("home");
+      },
+    );
+  });
+
+  document
+    .getElementById("skillFilter")
+    .addEventListener("change", renderSkillSheet);
+  document
+    .getElementById("skillSearch")
+    .addEventListener("input", renderSkillSheet);
+  document.getElementById("sheetNotes").addEventListener("input", (e) => {
+    if (currentAgent) {
+      currentAgent.notes = e.target.value;
+      saveAgent(currentAgent);
+    }
+  });
+  document.getElementById("modal").addEventListener("click", (e) => {
+    if (e.target.id === "modal") hideModal();
+  });
+
+  document.getElementById("btnLogout").addEventListener("click", async () => {
+    if (getToken()) apiPost("/api/auth/logout").catch(() => {});
+    doLogout();
+  });
+  document.getElementById("btnToggleMode").addEventListener("click", toggleAuthMode);
+  document.getElementById("loginForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    doLogin();
+  });
+}
+
+let authMode = "login";
+function setAuthError(msg) {
+  document.getElementById("loginError").textContent = msg || "";
+}
+function toggleAuthMode() {
+  authMode = authMode === "login" ? "register" : "login";
+  const btn = document.getElementById("btnLogin");
+  const link = document.getElementById("btnToggleMode");
+  if (authMode === "register") {
+    btn.textContent = "Criar conta";
+    link.textContent = "Já tenho conta";
+    document.getElementById("loginPass").autocomplete = "new-password";
+  } else {
+    btn.textContent = "Entrar";
+    link.textContent = "Criar conta";
+  }
+  setAuthError("");
+}
+async function doLogin() {
+  setAuthError("");
+  const username = document.getElementById("loginUser").value.trim();
+  const password = document.getElementById("loginPass").value;
+  if (!username || !password) {
+    setAuthError("Preencha usuário e senha.");
+    return;
+  }
+  const path = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+  try {
+    const r = await api(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    localStorage.setItem(AUTH_KEY, r.token);
+    await bootApp();
+  } catch (e) {
+    setAuthError(e.message);
+  }
+}
+function apiPost(path, body) {
+  return api(path, { method: "POST", body: JSON.stringify(body || {}) });
+}
+async function bootApp() {
+  setAuthError("");
+  try {
+    const me = await apiGet("/api/me");
+    currentUser = me.user;
+    agents = me.agents || [];
+    document.getElementById("homeUser").textContent =
+      currentUser ? "Conta: " + currentUser.username : "";
+    showScreen("home");
+  } catch (e) {
+    showScreen("login");
+  }
+}
+function doLogout() {
+  localStorage.removeItem(AUTH_KEY);
+  currentUser = null;
+  agents = [];
+  currentAgent = null;
+  document.getElementById("loginUser").value = "";
+  document.getElementById("loginPass").value = "";
+  setAuthError("");
+  showScreen("login");
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
+function init() {
+  bindGlobal();
+  if (getToken()) bootApp();
+  else showScreen("login");
+}

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ordem Paranormal RPG 2 — Criador de Agentes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="noise"></div>
+
+<!-- ===================== LOGIN ===================== -->
+<section id="screen-login" class="screen active">
+  <div class="login-wrap">
+    <div class="sigil-divider">
+      <svg viewBox="0 0 100 100" class="big-sigil">
+        <circle cx="50" cy="50" r="36" class="sg-c"/>
+        <circle cx="50" cy="50" r="44" class="sg-c dim"/>
+        <circle cx="50" cy="50" r="10" class="sg-c"/>
+        <line x1="50" y1="0" x2="50" y2="100" class="sg-l"/>
+        <line x1="0" y1="50" x2="100" y2="50" class="sg-l"/>
+        <line x1="14.6" y1="14.6" x2="85.4" y2="85.4" class="sg-l"/>
+        <line x1="85.4" y1="14.6" x2="14.6" y2="85.4" class="sg-l"/>
+      </svg>
+    </div>
+    <h1 class="brand">ORDEM <span>PARANORMAL</span></h1>
+    <h2 class="sub-brand">RPG · SEGUNDA EDIÇÃO</h2>
+    <p class="tagline">Acesse sua conta para criar e gerenciar seus agentes. As fichas (PV, PD, inventário e notas) ficam salvas automaticamente.</p>
+
+    <form id="loginForm" class="login-card">
+      <input type="text" id="loginUser" class="input" placeholder="Nome de usuário" autocomplete="username" maxlength="20">
+      <input type="password" id="loginPass" class="input" placeholder="Senha" autocomplete="current-password">
+      <button type="submit" class="btn primary big" id="btnLogin">Entrar</button>
+      <p class="login-switch">Não tem conta? <button type="button" id="btnToggleMode" class="link-btn">Criar conta</button></p>
+    </form>
+    <p id="loginError" class="login-error"></p>
+  </div>
+</section>
+
+<!-- ===================== HOME ===================== -->
+<section id="screen-home" class="screen">
+  <div class="home-wrap">
+    <div class="home-topbar">
+      <span class="home-user" id="homeUser"></span>
+      <button class="btn ghost small" id="btnLogout">Sair</button>
+    </div>
+    <div class="sigil-divider">
+      <svg viewBox="0 0 100 100" class="big-sigil">
+        <circle cx="50" cy="50" r="36" class="sg-c"/>
+        <circle cx="50" cy="50" r="44" class="sg-c dim"/>
+        <circle cx="50" cy="50" r="10" class="sg-c"/>
+        <line x1="50" y1="0" x2="50" y2="100" class="sg-l"/>
+        <line x1="0" y1="50" x2="100" y2="50" class="sg-l"/>
+        <line x1="14.6" y1="14.6" x2="85.4" y2="85.4" class="sg-l"/>
+        <line x1="85.4" y1="14.6" x2="14.6" y2="85.4" class="sg-l"/>
+      </svg>
+    </div>
+    <h1 class="brand">ORDEM <span>PARANORMAL</span></h1>
+    <h2 class="sub-brand">RPG · SEGUNDA EDIÇÃO</h2>
+    <p class="tagline">Ferramenta de criação de agentes baseada na engenharia reversa do playtest <em>A Maldição do Ídolo de Pedra</em>.</p>
+
+    <div class="home-actions">
+      <button class="btn primary big" data-nav="create">✛ &nbsp;Criar novo agente</button>
+      <button class="btn ghost big" data-nav="rules">≋ &nbsp;Regras & métodos</button>
+    </div>
+
+    <div id="agentList" class="agent-list"></div>
+
+    <footer class="home-foot">
+      Projeto de fã, não-oficial. Sistema original © Jambô Editora & Rafael Lange (Cellbit).
+      Regras de criação reconstruídas pela comunidade (@SkStatic_).
+    </footer>
+  </div>
+</section>
+
+<!-- ===================== CRIAR ===================== -->
+<section id="screen-create" class="screen">
+  <div class="create-layout">
+    <aside class="wizard-side">
+      <div class="brand-mini">ORDEM <span>PARANORMAL</span> <em>RPG II</em></div>
+      <ol id="stepList" class="step-list"></ol>
+      <div class="rule-summary" id="ruleSummary"></div>
+      <button class="btn ghost small btn-back-home" data-nav="home">← Voltar</button>
+    </aside>
+
+    <main class="wizard-main">
+      <div id="stepPanels"></div>
+      <div class="wizard-nav">
+        <button id="btnPrev" class="btn ghost">← Anterior</button>
+        <span id="stepCounter" class="step-counter"></span>
+        <button id="btnNext" class="btn primary">Próximo →</button>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ===================== FICHA ===================== -->
+<section id="screen-sheet" class="screen">
+  <div class="sheet-head">
+    <div class="sheet-head-left">
+      <button class="btn ghost small btn-back-list" data-nav="home">← Agentes</button>
+      <h1 id="sheetName" class="sheet-title">—</h1>
+      <div class="sheet-tags" id="sheetTags"></div>
+    </div>
+    <div class="sheet-head-right">
+      <button id="btnRollInit" class="btn ghost small">⇄ Iniciativa (Fís + Emo)</button>
+      <button id="btnExport" class="btn ghost small">⇩ Exportar</button>
+      <button id="btnDelete" class="btn danger small">Excluir</button>
+    </div>
+  </div>
+
+  <div class="sheet-strip" id="sheetStrip"></div>
+
+  <div class="sheet-grid">
+    <!-- Coluna esquerda -->
+    <div class="sheet-col">
+      <div class="card">
+        <h3 class="card-title">Atributos</h3>
+        <div id="sheetAttrs" class="attr-sheet"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Vitalidade</h3>
+        <div id="sheetVitals" class="vitals"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Habilidades</h3>
+        <div id="sheetAbilities" class="abilities"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Inventário</h3>
+        <div id="sheetInventory" class="inventory"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Anotações</h3>
+        <textarea id="sheetNotes" class="notes-input" rows="4" placeholder="Histórico, aparência, contatos..."></textarea>
+      </div>
+    </div>
+
+    <!-- Coluna direita -->
+    <div class="sheet-col">
+      <div class="card roller-card">
+        <h3 class="card-title">Teste de Perícia</h3>
+        <div class="roller-head">
+          <span id="rollerSkillName" class="roller-skill">selecione uma perícia</span>
+          <label class="dt-label">DT
+            <input type="number" id="dtInput" value="7" min="1" max="40">
+          </label>
+        </div>
+        <div id="dicePreview" class="dice-preview"></div>
+        <div id="bonusDiceTags" class="bonus-tags"></div>
+        <div id="rollResult" class="roll-result" style="display:none"></div>
+        <button id="btnRoll" class="btn primary big" disabled>Rolar Teste</button>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Perícias</h3>
+        <div class="skill-filter">
+          <select id="skillFilter" class="select">
+            <option value="all">Todas</option>
+            <option value="fisico">Físico</option>
+            <option value="mente">Mente</option>
+            <option value="emocao">Emoção</option>
+          </select>
+          <input type="text" id="skillSearch" class="input" placeholder="Buscar perícia...">
+        </div>
+        <div id="skillList" class="skill-sheet"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sheetProfileWidgets"></div>
+</section>
+
+<!-- ===================== REGRAS ===================== -->
+<section id="screen-rules" class="screen">
+  <div class="rules-wrap">
+    <button class="btn ghost small btn-back-home" data-nav="home">← Voltar</button>
+    <h1 class="rules-title">Regras & Métodos</h1>
+
+    <div class="rules-note">
+      <strong>Contém spoilers / é especulativo.</strong> Este site implementa a leitura da comunidade sobre o
+      sistema de criação de fichas do playtest alpha de <em>Ordem Paranormal RPG 2</em>, reconstruída em engenharia
+      reversa. As regras finais podem mudar — confira os <a href="https://site.jamboeditora.com.br/arquivos-secretos/" target="_blank" rel="noopener">Arquivos Secretos</a> para o material oficial.
+    </div>
+
+    <div class="rules-grid">
+      <div class="card">
+        <h3 class="card-title">Atributos</h3>
+        <p>Todos começam em <strong>d6</strong> (a média humana). Você tem <strong>2 pontos</strong> para distribuir. Cada ponto eleva um atributo em um passo (d6 → d8 → d10). Você pode <em>reduzir</em> um atributo em um passo (d6 → d4) para receber <strong>+1 ponto</strong> de distribuição. É improvável começar com atributo em d12.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Perícias</h3>
+        <p>Você recebe um número de pontos igual ao <strong>valor máximo da sua Mente</strong> (ex.: Mente d8 → 8 pontos). Cada ponto aumenta a perícia em um passo (d4 → d6 → d8 → d10 → d12). Teoria da comunidade: d8, d10 e d12 sejam liberados respectivamente nos níveis <strong>2, 4 e 6</strong>.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Vida & Determinação</h3>
+        <p><strong>PV</strong> equivale ao máximo do seu Físico; <strong>PD</strong> equivale ao máximo da sua Emoção. Você recebe <strong>6 pontos por nível</strong> para distribuir entre PV e PD (Lv2 → 12; Lv6 → 36).</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Perfis</h3>
+        <p>Cada perfil concede uma habilidade única: <strong>Avaliação</strong> (Analista), <strong>Ímpeto</strong> (Executor) e <strong>Prontidão</strong> (Vigilante).</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Ocupações</h3>
+        <p>Cada ocupação concede uma habilidade única: <strong>Conhecimento Técnico</strong> (Profissional de Escritório), <strong>Mentoria</strong> (Professor), <strong>Foco mental</strong> (Cientista), <strong>Esforço e suor</strong> (Operário), <strong>Foco emocional</strong> (Artista), <strong>Técnica Medicinal</strong> (Médico) e <strong>Incansável</strong> (Policial).</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Rolagem</h3>
+        <p>Um teste soma <strong>dado de perícia + dado de atributo</strong> (d4 a d12) contra uma <strong>DT</strong> (7 por padrão). Rolagem alta (RA) é o maior resultado individual; rolagem baixa (RB) o menor. <strong>Sucesso crítico</strong>: 2+ dados com o mesmo valor ≥ 6. <strong>Falha crítica</strong>: todos os dados vieram 1. Pode-se rolar até 4 dados, somando apenas os 3 melhores.</p>
+      </div>
+    </div>
+
+    <div class="card credit-card">
+      <h3 class="card-title">Créditos</h3>
+      <p>Engenharia reversa da criação de personagens: <strong>@SkStatic_</strong>, com Portill e Ojimo —
+      <a href="https://x.com/SkStatic_/status/2094176375527674232" target="_blank" rel="noopener">thread original</a>.
+      Resumo das regras de teste e mecânicas: <a href="https://github.com/MatheuLB/mesa-ordem-paranormal" target="_blank" rel="noopener">Mesa Ordem Paranormal RPG II</a>.
+      Sistema © Jambô Editora & Rafael Lange (Cellbit).</p>
+    </div>
+  </div>
+</section>
+
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal"><div class="modal-box"><h3 id="modalTitle"></h3><p id="modalText"></p><div id="modalActions"></div></div></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
