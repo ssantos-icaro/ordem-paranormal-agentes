@@ -901,6 +901,7 @@ function renderSheet(a) {
     `<span class="tag tag-sym theme-${p.theme || "green"}">${esc(a.symbol || "✶")}</span>`;
   document.getElementById("sheetName").className =
     "sheet-title theme-" + (p.theme || "green");
+  document.getElementById("sheetName").title = "Clique para renomear";
   const av = document.getElementById("sheetAvatar");
   av.className =
     "avatar avatar-sheet theme-" + (p.theme || "green") + (a.photo ? " photo" : "");
@@ -1199,10 +1200,21 @@ function renderSkillSheet() {
   SKILL_DEFS.forEach((s) => {
     if (f !== "all" && s.attr !== f) return;
     if (q && !s.name.toLowerCase().includes(q)) return;
-    const row = document.createElement("button");
-    row.type = "button";
+    const die = currentAgent.skills[s.name] || 4;
+    const row = document.createElement("div");
     row.className = "skill-item" + (selectedSkill === s.name ? " sel" : "");
-    row.innerHTML = `<span class="s-die">d${currentAgent.skills[s.name] || 4}</span><span class="s-name">${s.name}</span><span class="s-attr">${ATTR_LABEL[s.attr]}</span>`;
+    row.innerHTML = `
+      <button class="s-step" data-name="${s.name}" data-d="-1" type="button" title="Reduzir ${s.name}">−</button>
+      <span class="s-die">d${die}</span>
+      <span class="s-name">${s.name}</span>
+      <span class="s-attr">${ATTR_LABEL[s.attr]}</span>
+      <button class="s-step" data-name="${s.name}" data-d="1" type="button" title="Aumentar ${s.name}">+</button>`;
+    row.querySelectorAll(".s-step").forEach((b) => {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        adjustSkill(s.name, Number(b.dataset.d));
+      });
+    });
     row.addEventListener("click", () => {
       selectedSkill = s.name;
       renderSkillSheet();
@@ -1213,6 +1225,66 @@ function renderSkillSheet() {
   });
   if (!el.children.length)
     el.innerHTML = '<p class="hint">Nenhuma perícia encontrada.</p>';
+}
+
+function adjustSkill(name, delta) {
+  const a = currentAgent;
+  if (!a) return;
+  let cur = Number(a.skills[name]) || 4;
+  if (!DIE_STEPS.includes(cur)) cur = 4;
+  const next = stepDie(cur, delta);
+  if (next === cur) {
+    toast(
+      delta > 0
+        ? `${name} já está no máximo (d12).`
+        : `${name} já está no mínimo (d4).`,
+    );
+    return;
+  }
+  a.skills[name] = next;
+  saveAgent(a);
+  renderSkillSheet();
+  if (selectedSkill === name) renderRollerHead(name);
+  toast(`${name} agora é d${next}.`);
+}
+
+function startNameEdit() {
+  const a = currentAgent;
+  if (!a) return;
+  const el = document.getElementById("sheetName");
+  if (!el) return;
+  el.textContent = "";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "name-edit";
+  input.value = a.name || "";
+  input.maxLength = 48;
+  el.appendChild(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    const v = input.value.trim();
+    if (commit && v && v !== a.name) {
+      a.name = v;
+      saveAgent(a);
+      renderSheet(a);
+      toast("Nome atualizado.");
+    } else {
+      renderSheet(a);
+    }
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === "Escape") {
+      finish(false);
+    }
+  });
+  input.addEventListener("blur", () => finish(true));
 }
 
 function renderRollerHead(name) {
@@ -1932,6 +2004,7 @@ function bindGlobal() {
     document.getElementById("rollResult").style.display = "none";
   });
 
+  document.getElementById("sheetName").addEventListener("click", startNameEdit);
   document.getElementById("btnAttrEdit").addEventListener("click", () => {
     attrEditMode = true;
     renderAttrTools();
